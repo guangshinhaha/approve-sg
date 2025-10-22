@@ -34,12 +34,20 @@ app.use('/api/grades', require('./routes/grades'));
 app.use('/api/parents', require('./routes/parents'));
 app.use('/api/admin', require('./routes/admin'));
 
-// New feature routes
+// Phase 1 feature routes
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/health', require('./routes/health'));
 app.use('/api/fees', require('./routes/fees'));
 app.use('/api/reportcards', require('./routes/reportcards'));
+
+// Phase 2 feature routes
+app.use('/api/timetable', require('./routes/timetable'));
+app.use('/api/library', require('./routes/library'));
+app.use('/api/transport', require('./routes/transport'));
+app.use('/api/portfolio', require('./routes/portfolio'));
+app.use('/api/events', require('./routes/events'));
+app.use('/api/homework', require('./routes/homework'));
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
