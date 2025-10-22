@@ -34,6 +34,13 @@ app.use('/api/grades', require('./routes/grades'));
 app.use('/api/parents', require('./routes/parents'));
 app.use('/api/admin', require('./routes/admin'));
 
+// New feature routes
+app.use('/api/messages', require('./routes/messages'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/health', require('./routes/health'));
+app.use('/api/fees', require('./routes/fees'));
+app.use('/api/reportcards', require('./routes/reportcards'));
+
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static('client/build'));
