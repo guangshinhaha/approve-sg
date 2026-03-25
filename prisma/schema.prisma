@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum SubmissionStatus {
+  draft
+  pending
+  approved
+  rejected
+  sent_back
+}
+
+enum ActionType {
+  approved
+  rejected
+  sent_back
+}
+
+model Workflow {
+  id           String   @id @default(uuid()) @db.Uuid
+  schoolCode   String   @map("school_code") @db.VarChar(10)
+  workflowType String   @map("workflow_type") @db.VarChar(100)
+  name         String   @db.VarChar(255)
+  steps        Json     @db.JsonB
+  active       Boolean  @default(true)
+  createdBy    String   @map("created_by") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  submissions Submission[]
+
+  @@unique([schoolCode, workflowType])
+  @@index([schoolCode])
+  @@map("workflows")
+}
+
+model Submission {
+  id           String           @id @default(uuid()) @db.Uuid
+  workflowId   String           @map("workflow_id") @db.Uuid
+  schoolCode   String           @map("school_code") @db.VarChar(10)
+  externalRef  String?          @map("external_ref") @db.VarChar(255)
+  externalType String?          @map("external_type") @db.VarChar(100)
+  payload      Json?            @db.JsonB
+  status       SubmissionStatus @default(pending)
+  currentStep  Int              @default(1) @map("current_step")
+  submittedBy  String           @map("submitted_by") @db.VarChar(255)
+  submittedAt  DateTime         @default(now()) @map("submitted_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  workflow Workflow         @relation(fields: [workflowId], references: [id])
+  actions  ApprovalAction[]
+
+  @@index([schoolCode])
+  @@index([workflowId])
+  @@index([submittedBy])
+  @@index([status])
+  @@map("submissions")
+}
+
+model ApprovalAction {
+  id           String     @id @default(uuid()) @db.Uuid
+  submissionId String     @map("submission_id") @db.Uuid
+  stepOrder    Int        @map("step_order")
+  action       ActionType
+  actor        String     @db.VarChar(255)
+  actorRole    String?    @map("actor_role") @db.VarChar(100)
+  comments     String?    @db.Text
+  actedAt      DateTime   @default(now()) @map("acted_at")
+
+  submission Submission @relation(fields: [submissionId], references: [id])
+
+  @@index([submissionId])
+  @@map("approval_actions")
+}
+
+model WebhookRegistration {
+  id           String   @id @default(uuid()) @db.Uuid
+  schoolCode   String   @map("school_code") @db.VarChar(10)
+  url          String   @db.VarChar(2048)
+  events       String[] @db.VarChar(100)
+  secret       String   @db.VarChar(255)
+  active       Boolean  @default(true)
+  createdBy    String   @map("created_by") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([schoolCode])
+  @@map("webhook_registrations")
+}
