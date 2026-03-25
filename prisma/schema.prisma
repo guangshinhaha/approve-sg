@@ -60,6 +60,8 @@ model Submission {
   @@index([workflowId])
   @@index([submittedBy])
   @@index([status])
+  @@index([schoolCode, status])
+  @@index([schoolCode, workflowId, status])
   @@map("submissions")
 }
 
