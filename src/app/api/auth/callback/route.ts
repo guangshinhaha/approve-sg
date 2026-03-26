@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     const { access_token } = await tokenRes.json();
     setSessionCookie(access_token);
 
-    return NextResponse.redirect(new URL("/", req.url));
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   } catch {
     return NextResponse.redirect(new URL("/login?error=callback_failed", req.url));
   }
