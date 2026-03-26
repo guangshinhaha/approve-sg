@@ -44,7 +44,7 @@ export function LandingNav() {
             </button>
           ))}
           <a
-            href="#demo"
+            href="/login"
             className="rounded-btn bg-approve-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-approve-primary-dark"
           >
             Try Demo &rarr;
@@ -74,7 +74,7 @@ export function LandingNav() {
             </button>
           ))}
           <a
-            href="#demo"
+            href="/login"
             className="mt-2 block rounded-btn bg-approve-primary px-4 py-2 text-center text-sm font-semibold text-white"
           >
             Try Demo &rarr;

@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: approvesg
+      POSTGRES_PASSWORD: approvesg
+      POSTGRES_DB: approvesg
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U approvesg"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://approvesg:approvesg@db:5432/approvesg
+      DIRECT_URL: postgresql://approvesg:approvesg@db:5432/approvesg
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      # Override in .env or shell for real values:
+      MIMS_JWKS_URL: ${MIMS_JWKS_URL:-https://mims.moe.gov.sg/.well-known/jwks.json}
+      MIMS_ISSUER: ${MIMS_ISSUER:-https://mims.moe.gov.sg}
+      MIMS_CLIENT_ID: ${MIMS_CLIENT_ID:-}
+      MIMS_CLIENT_SECRET: ${MIMS_CLIENT_SECRET:-}
+      JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-in-production}
+      AWS_SES_REGION: ${AWS_SES_REGION:-ap-southeast-1}
+      AWS_SES_ACCESS_KEY_ID: ${AWS_SES_ACCESS_KEY_ID:-}
+      AWS_SES_SECRET_ACCESS_KEY: ${AWS_SES_SECRET_ACCESS_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@approve.moe.gov.sg}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
+
+volumes:
+  pgdata:

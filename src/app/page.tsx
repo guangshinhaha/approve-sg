@@ -194,7 +194,7 @@ export default function LandingPage() {
           <FadeInSection delay={300}>
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
               <a
-                href="#demo"
+                href="/login"
                 className="inline-flex items-center gap-2 rounded-btn bg-approve-primary px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-approve-primary-dark"
               >
                 Try the Demo <ArrowRight className="h-4 w-4" />
@@ -474,7 +474,7 @@ export default function LandingPage() {
             </h2>
             <div className="mt-7">
               <a
-                href="#demo"
+                href="/login"
                 className="inline-flex items-center gap-2 rounded-btn bg-approve-primary px-8 py-4 text-base font-semibold text-white transition-colors hover:bg-approve-primary-dark"
               >
                 Try the Demo <ArrowRight className="h-5 w-5" />
