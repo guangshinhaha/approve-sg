@@ -38,13 +38,13 @@ export async function createSubmission(params: {
       submittedBy: params.submittedBy,
       externalRef: params.externalRef,
       externalType: params.externalType,
-      payload: params.payload ?? {},
+      payload: (params.payload ?? {}) as any,
       status: "pending",
       currentStep: 1,
     },
   });
 
-  const steps = workflow.steps as WorkflowStep[];
+  const steps = workflow.steps as unknown as WorkflowStep[];
   if (steps.length > 0) {
     await sendApprovalNotification({
       schoolCode: params.schoolCode,
@@ -75,7 +75,7 @@ export async function approveSubmission(
     throw new AppError("Submission is not in a pending state");
   }
 
-  const steps = submission.workflow.steps as WorkflowStep[];
+  const steps = submission.workflow.steps as unknown as WorkflowStep[];
   const currentStep = steps.find((s) => s.order === submission.currentStep);
   if (!currentStep) throw new AppError("Invalid workflow step");
 

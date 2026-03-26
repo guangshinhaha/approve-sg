@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { DataTable } from "@/components/data-table";
-import { clientFetch } from "@/lib/api-client";
+import { clientFetch } from "@/lib/client-fetch";
 import { Plus, GitBranch } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 

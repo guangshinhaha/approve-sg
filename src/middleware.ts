@@ -79,7 +79,7 @@ export function middleware(req: NextRequest) {
   }
 
   // --- Dashboard routes: require auth cookie ---
-  if (pathname === "/login" || pathname.startsWith("/_next") || pathname.startsWith("/favicon")) {
+  if (pathname === "/" || pathname === "/login" || pathname.startsWith("/_next") || pathname.startsWith("/favicon")) {
     return NextResponse.next();
   }
 

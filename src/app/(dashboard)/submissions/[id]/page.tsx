@@ -9,7 +9,7 @@ import { ActionButtons } from "@/components/action-buttons";
 import { ActionDialog } from "@/components/action-dialog";
 import { SubmissionId } from "@/components/submission-id";
 import { TimeDisplay } from "@/components/time-display";
-import { clientFetch } from "@/lib/api-client";
+import { clientFetch } from "@/lib/client-fetch";
 import { ArrowLeft, User, Clock, FileText } from "lucide-react";
 import Link from "next/link";
 

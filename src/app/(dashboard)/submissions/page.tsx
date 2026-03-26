@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { SubmissionId } from "@/components/submission-id";
 import { TimeDisplay } from "@/components/time-display";
 import { DataTable } from "@/components/data-table";
-import { clientFetch } from "@/lib/api-client";
+import { clientFetch } from "@/lib/client-fetch";
 
 interface Submission {
   id: string;

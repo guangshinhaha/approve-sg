@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
-import { clientFetch } from "@/lib/api-client";
+import { clientFetch } from "@/lib/client-fetch";
 import { ArrowLeft, GripVertical, Trash2, Plus, Save } from "lucide-react";
 import Link from "next/link";
 

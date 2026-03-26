@@ -25,7 +25,7 @@ export async function GET(
     if (!submission) throw new NotFoundError("Submission");
     enforceSchoolAccess(user, submission.schoolCode);
 
-    const steps = submission.workflow.steps as WorkflowStep[];
+    const steps = submission.workflow.steps as unknown as WorkflowStep[];
     const currentStepConfig = steps.find((s) => s.order === submission.currentStep);
 
     return NextResponse.json({

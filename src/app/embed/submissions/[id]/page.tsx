@@ -27,7 +27,7 @@ export default async function EmbedSubmissionPage({
 
   if (!submission) notFound();
 
-  const steps = (submission.workflow.steps as WorkflowStep[]) || [];
+  const steps = (submission.workflow.steps as unknown as WorkflowStep[]) || [];
 
   return (
     <div className="min-h-screen bg-white p-6 font-sans">

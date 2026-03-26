@@ -23,7 +23,7 @@ const NAV_ITEMS = [
   { href: "/admin/workflows", label: "Workflows", icon: GitBranch, roles: ["school_admin", "platform_admin"] },
   { href: "/admin/audit", label: "Audit Trail", icon: Activity, roles: ["school_admin", "platform_admin"] },
   { href: "/admin/webhooks", label: "Webhooks", icon: Webhook, roles: ["school_admin", "platform_admin"] },
-] as const;
+];
 
 export function AppSidebar({ user }: SidebarProps) {
   const pathname = usePathname();

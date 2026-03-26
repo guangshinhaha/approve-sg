@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
-import { clientFetch } from "@/lib/api-client";
+import { clientFetch } from "@/lib/client-fetch";
 import { Plus, Trash2, Webhook, Copy, Check } from "lucide-react";
 import { ALL_WEBHOOK_EVENTS } from "@/lib/constants";
 
