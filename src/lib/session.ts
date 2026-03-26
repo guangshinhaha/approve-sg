@@ -1,12 +1,14 @@
 import { cookies } from "next/headers";
-import { jwtVerify, createRemoteJWKSet } from "jose";
+import { jwtVerify } from "jose";
 import { AuthUser } from "./auth";
 
 const SESSION_COOKIE = "approvesg_session";
 
-const JWKS = createRemoteJWKSet(
-  new URL(process.env.MIMS_JWKS_URL || "https://mims.moe.gov.sg/.well-known/jwks.json")
-);
+function demoSecret() {
+  return new TextEncoder().encode(
+    process.env.JWT_SECRET || "demo-secret-change-in-production"
+  );
+}
 
 export async function getSession(): Promise<AuthUser | null> {
   const cookieStore = cookies();
@@ -14,8 +16,8 @@ export async function getSession(): Promise<AuthUser | null> {
   if (!token) return null;
 
   try {
-    const { payload } = await jwtVerify(token, JWKS, {
-      issuer: process.env.MIMS_ISSUER || "https://mims.moe.gov.sg",
+    const { payload } = await jwtVerify(token, demoSecret(), {
+      issuer: "approvesg-demo",
     });
 
     return {

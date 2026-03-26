@@ -1,4 +1,4 @@
-import { jwtVerify, createRemoteJWKSet } from "jose";
+import { jwtVerify } from "jose";
 import { NextRequest } from "next/server";
 
 export interface AuthUser {
@@ -9,9 +9,11 @@ export interface AuthUser {
   name: string;
 }
 
-const JWKS = createRemoteJWKSet(
-  new URL(process.env.MIMS_JWKS_URL || "https://mims.moe.gov.sg/.well-known/jwks.json")
-);
+function demoSecret() {
+  return new TextEncoder().encode(
+    process.env.JWT_SECRET || "demo-secret-change-in-production"
+  );
+}
 
 export async function verifyAuth(req: NextRequest): Promise<AuthUser> {
   const authHeader = req.headers.get("authorization");
@@ -22,8 +24,8 @@ export async function verifyAuth(req: NextRequest): Promise<AuthUser> {
   const token = authHeader.slice(7);
 
   try {
-    const { payload } = await jwtVerify(token, JWKS, {
-      issuer: process.env.MIMS_ISSUER || "https://mims.moe.gov.sg",
+    const { payload } = await jwtVerify(token, demoSecret(), {
+      issuer: "approvesg-demo",
     });
 
     return {
