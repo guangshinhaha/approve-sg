@@ -18,7 +18,7 @@ interface SidebarProps {
 }
 
 const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["submitter", "approver", "school_admin", "platform_admin"] },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["submitter", "approver", "school_admin", "platform_admin"] },
   { href: "/submissions", label: "Submissions", icon: FileText, roles: ["submitter", "approver", "school_admin", "platform_admin"] },
   { href: "/admin/workflows", label: "Workflows", icon: GitBranch, roles: ["school_admin", "platform_admin"] },
   { href: "/admin/audit", label: "Audit Trail", icon: Activity, roles: ["school_admin", "platform_admin"] },
@@ -41,7 +41,7 @@ export function AppSidebar({ user }: SidebarProps) {
     <aside className="w-[260px] h-full bg-white border-r border-approve-border flex flex-col">
       {/* Logo */}
       <div className="px-5 py-4 border-b border-approve-border">
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/dashboard" className="flex items-center gap-3">
           <div className="w-9 h-9 bg-approve-primary rounded-[10px] flex items-center justify-center flex-shrink-0">
             <CheckCircle className="w-5 h-5 text-white" strokeWidth={2.5} />
           </div>
@@ -54,8 +54,8 @@ export function AppSidebar({ user }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {visibleItems.map((item) => {
-          const isActive = item.href === "/"
-            ? pathname === "/"
+          const isActive = item.href === "/dashboard"
+            ? pathname === "/dashboard"
             : pathname.startsWith(item.href);
 
           return (
