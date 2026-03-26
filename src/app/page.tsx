@@ -1,11 +1,17 @@
-export default function Home() {
-  return (
-    <main style={{ maxWidth: 600, margin: "80px auto", fontFamily: "system-ui" }}>
-      <h1>ApproveSG</h1>
-      <p>Approval Workflows as a Shared Service</p>
-      <p style={{ color: "#666", marginTop: 16 }}>
-        This is a headless API service. See <code>/api/health</code> for status.
-      </p>
-    </main>
-  );
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/session";
+
+/**
+ * Root page — redirects to dashboard if authenticated, login if not.
+ * The actual dashboard content is in (dashboard)/page.tsx.
+ */
+export default async function RootPage() {
+  const user = await getSession();
+
+  if (user) {
+    // Redirect is handled by the (dashboard) layout
+    // This page shouldn't normally be reached
+  }
+
+  redirect("/login");
 }

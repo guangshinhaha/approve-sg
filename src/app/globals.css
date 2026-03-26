@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* === ApproveSG Product Colours (SGDS-derived) === */
+    --approve-primary: #0F71BB;
+    --approve-primary-dark: #0B5A96;
+    --approve-primary-light: #E6F3FB;
+    --approve-accent: #0A8217;
+    --approve-accent-light: #ECFBEE;
+    --approve-surface: #FFFFFF;
+    --approve-surface-alt: #F7F7F9;
+    --approve-text: #1D2939;
+    --approve-text-secondary: #667085;
+    --approve-border: #E4E7EC;
+
+    /* === Status Palette === */
+    --status-pending: #F79009;
+    --status-pending-bg: #FFFAEB;
+    --status-pending-text: #93530B;
+    --status-approved: #0A8217;
+    --status-approved-bg: #ECFBEE;
+    --status-approved-text: #085D11;
+    --status-rejected: #D7260F;
+    --status-rejected-bg: #FFF4F3;
+    --status-rejected-text: #A11D0A;
+    --status-sent-back: #0F71BB;
+    --status-sent-back-bg: #E6F3FB;
+    --status-sent-back-text: #0B5A96;
+    --status-draft: #98A2B3;
+    --status-draft-bg: #F7F7F9;
+    --status-draft-text: #667085;
+
+    /* === Sidebar === */
+    --sidebar-width: 260px;
+    --header-height: 56px;
+    --gov-banner-height: 32px;
+  }
+
+  body {
+    @apply font-sans text-approve-text antialiased;
+    background: var(--approve-surface);
+  }
+
+  /* Inter font weights: 400 (regular), 500 (medium), 600 (semibold), 700 (bold) */
+  h1, h2, h3, h4 {
+    @apply font-bold text-grey-700;
+  }
+}
+
+@layer components {
+  /* Focus ring — WCAG compliant */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+    --tw-ring-color: var(--approve-primary);
+  }
+}

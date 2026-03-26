@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX || "100", 10);
+const SESSION_COOKIE = "approvesg_session";
 
 // In-memory rate limiter (use Redis in production for multi-instance)
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
@@ -36,40 +37,59 @@ setInterval(() => {
 }, 60_000);
 
 export function middleware(req: NextRequest) {
-  // Only apply to API routes
-  if (!req.nextUrl.pathname.startsWith("/api")) {
-    return NextResponse.next();
+  const { pathname } = req.nextUrl;
+
+  // --- Embed routes: allow iframe, skip auth ---
+  if (pathname.startsWith("/embed")) {
+    const response = NextResponse.next();
+    // Allow embedding from approved origins
+    response.headers.set("X-Frame-Options", "ALLOWALL");
+    response.headers.set("Content-Security-Policy", "frame-ancestors *");
+    return response;
   }
 
-  // Skip rate limiting for health check
-  if (req.nextUrl.pathname === "/api/health") {
-    return addSecurityHeaders(NextResponse.next());
-  }
+  // --- API routes: rate limiting + security headers ---
+  if (pathname.startsWith("/api")) {
+    // Skip rate limiting for health and auth routes
+    if (pathname === "/api/health" || pathname.startsWith("/api/auth")) {
+      return addSecurityHeaders(NextResponse.next());
+    }
 
-  // Rate limiting
-  const key = getRateLimitKey(req);
-  const { allowed, remaining } = checkRateLimit(key);
+    // Rate limiting
+    const key = getRateLimitKey(req);
+    const { allowed, remaining } = checkRateLimit(key);
 
-  if (!allowed) {
-    const response = NextResponse.json(
-      { error: "Too many requests" },
-      { status: 429 }
-    );
-    response.headers.set("Retry-After", "60");
+    if (!allowed) {
+      const response = NextResponse.json(
+        { error: "Too many requests" },
+        { status: 429 }
+      );
+      response.headers.set("Retry-After", "60");
+      return addSecurityHeaders(response);
+    }
+
+    const response = NextResponse.next();
+    response.headers.set("X-RateLimit-Limit", String(RATE_LIMIT_MAX));
+    response.headers.set("X-RateLimit-Remaining", String(remaining));
+
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+    response.headers.set("X-Request-Id", requestId);
+
     return addSecurityHeaders(response);
   }
 
-  const response = NextResponse.next();
+  // --- Dashboard routes: require auth cookie ---
+  if (pathname === "/login" || pathname.startsWith("/_next") || pathname.startsWith("/favicon")) {
+    return NextResponse.next();
+  }
 
-  // Rate limit headers
-  response.headers.set("X-RateLimit-Limit", String(RATE_LIMIT_MAX));
-  response.headers.set("X-RateLimit-Remaining", String(remaining));
+  // Check for session cookie on all dashboard pages
+  const sessionToken = req.cookies.get(SESSION_COOKIE)?.value;
+  if (!sessionToken) {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
 
-  // Request ID for tracing
-  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
-  response.headers.set("X-Request-Id", requestId);
-
-  return addSecurityHeaders(response);
+  return NextResponse.next();
 }
 
 function addSecurityHeaders(response: NextResponse): NextResponse {
@@ -83,11 +103,13 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   );
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; connect-src 'self'"
   );
   return response;
 }
 
 export const config = {
-  matcher: ["/api/:path*"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico).*)",
+  ],
 };
