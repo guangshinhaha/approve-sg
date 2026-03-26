@@ -1,46 +1,43 @@
-# Multi-stage build for Node.js application
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
 WORKDIR /app
-
-# Copy package files
 COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev
 
-# Install dependencies
-RUN npm ci --only=production
-
-# Build stage
+# Build the application
 FROM base AS builder
 WORKDIR /app
-
 COPY package.json package-lock.json* ./
 RUN npm ci
-
 COPY . .
+RUN npx prisma generate
+RUN npm run build
 
-# Production stage
+# Production runner
 FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Create non-root user
 RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 expressjs
+RUN adduser --system --uid 1001 nextjs
 
-# Copy necessary files
-COPY --from=deps --chown=expressjs:nodejs /app/node_modules ./node_modules
-COPY --chown=expressjs:nodejs . .
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=deps /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/prisma ./prisma
 
-# Create necessary directories
-RUN mkdir -p uploads reports && chown -R expressjs:nodejs uploads reports
+USER nextjs
 
-USER expressjs
+EXPOSE 3000
 
-EXPOSE 5000
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
-ENV PORT=5000
+# Graceful shutdown
+STOPSIGNAL SIGTERM
 
 CMD ["node", "server.js"]
