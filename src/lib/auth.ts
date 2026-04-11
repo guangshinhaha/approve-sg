@@ -24,13 +24,20 @@ function demoSecret() {
   );
 }
 
-export async function verifyAuth(req: NextRequest): Promise<AuthUser> {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    throw new AuthError("Missing or invalid authorization header");
-  }
+const SESSION_COOKIE = "approvesg_session";
 
-  const token = authHeader.slice(7);
+export async function verifyAuth(req: NextRequest): Promise<AuthUser> {
+  // Prefer Authorization header (server-side apiGet forwarding, external clients);
+  // fall back to the session cookie for client-side fetches from the dashboard.
+  const authHeader = req.headers.get("authorization");
+  const headerToken = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : undefined;
+  const cookieToken = req.cookies.get(SESSION_COOKIE)?.value;
+  const token = headerToken ?? cookieToken;
+  if (!token) {
+    throw new AuthError("Missing authorization header or session cookie");
+  }
 
   try {
     const { payload } = await jwtVerify(token, demoSecret(), {

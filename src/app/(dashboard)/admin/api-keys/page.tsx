@@ -40,6 +40,7 @@ export default function ApiKeysPage() {
   const [creating, setCreating] = useState(false);
   const [newKey, setNewKey] = useState<CreatedKey | null>(null);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadKeys = () => {
     setLoading(true);
@@ -56,6 +57,7 @@ export default function ApiKeysPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (form.scopes.length === 0) return;
+    setError(null);
     setCreating(true);
     try {
       const created = await clientFetch<CreatedKey>("/api/api-keys", {
@@ -66,6 +68,8 @@ export default function ApiKeysPage() {
       setForm({ name: "", scopes: [] });
       setShowCreate(false);
       loadKeys();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create API key");
     } finally {
       setCreating(false);
     }
@@ -142,6 +146,11 @@ export default function ApiKeysPage() {
       {showCreate && (
         <div className="bg-white border border-approve-border rounded-card p-5 mb-5">
           <h3 className="text-sm font-bold text-grey-700 mb-3">Create API Key</h3>
+          {error && (
+            <div className="mb-3 px-3 py-2 rounded-btn bg-red-50 border border-red-200 text-xs text-red-700">
+              {error}
+            </div>
+          )}
           <form onSubmit={handleCreate} className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-approve-text-secondary mb-1">
