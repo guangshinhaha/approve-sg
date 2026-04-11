@@ -122,9 +122,11 @@ async function main() {
     ],
   });
 
+  // Fake "stuck for 5 days" so the chase demo has something to fire on
+  const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
   const s2 = await prisma.submission.upsert({
     where: { id: "00000000-0000-0000-0000-000000000002" },
-    update: {},
+    update: { stuckSince: fiveDaysAgo },
     create: {
       id: "00000000-0000-0000-0000-000000000002",
       orgId: org.id,
@@ -132,11 +134,23 @@ async function main() {
       submittedBy: "alice.tan@school.edu.sg",
       status: "pending",
       currentStep: 1,
+      stuckSince: fiveDaysAgo,
       payload: {
         title: "Sports Day Postponement",
         content: "Due to weather, Sports Day is postponed to 22 May.",
         recipients: "all_parents",
       },
+    },
+  });
+
+  // Chase reminder that's already overdue, so the next chase cycle will fire it
+  await prisma.chaseReminder.upsert({
+    where: { submissionId_stepOrder: { submissionId: s2.id, stepOrder: 1 } },
+    update: { nextDueAt: new Date(Date.now() - 60 * 60 * 1000), resolvedAt: null },
+    create: {
+      submissionId: s2.id,
+      stepOrder: 1,
+      nextDueAt: new Date(Date.now() - 60 * 60 * 1000),
     },
   });
 
@@ -173,9 +187,10 @@ async function main() {
     ],
   });
 
+  const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
   const s4 = await prisma.submission.upsert({
     where: { id: "00000000-0000-0000-0000-000000000004" },
-    update: {},
+    update: { stuckSince: twoDaysAgo },
     create: {
       id: "00000000-0000-0000-0000-000000000004",
       orgId: org.id,
@@ -183,12 +198,24 @@ async function main() {
       submittedBy: "alice.tan@school.edu.sg",
       status: "pending",
       currentStep: 2,
+      stuckSince: twoDaysAgo,
       payload: {
         title: "Reading Champions Programme",
         objective: "Improve literacy across P1-P3",
         duration: "6 months",
         budget: 8000,
       },
+    },
+  });
+
+  // Not yet due — first chase in ~1 day
+  await prisma.chaseReminder.upsert({
+    where: { submissionId_stepOrder: { submissionId: s4.id, stepOrder: 2 } },
+    update: { nextDueAt: new Date(Date.now() + 24 * 60 * 60 * 1000), resolvedAt: null },
+    create: {
+      submissionId: s4.id,
+      stepOrder: 2,
+      nextDueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     },
   });
 

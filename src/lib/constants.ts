@@ -42,3 +42,8 @@ export const MAX_PAGINATION_LIMIT = 100;
 export const DEFAULT_PAGINATION_LIMIT = 20;
 export const WEBHOOK_TIMEOUT_MS = 10_000;
 export const WEBHOOK_MAX_RETRIES = 3;
+
+// Chase engine: how long to wait between chase emails, and a safety cap so
+// a forgotten submission doesn't email the same approver indefinitely.
+export const CHASE_INTERVAL_HOURS = 72;
+export const CHASE_MAX_SEND_COUNT = 10;

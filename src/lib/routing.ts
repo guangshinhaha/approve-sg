@@ -2,6 +2,36 @@ import { prisma } from "./db";
 import { AppError, NotFoundError } from "./errors";
 import { dispatchWebhookEvent } from "./webhooks";
 import { sendApprovalNotification, sendStatusNotification } from "./notifications";
+import { CHASE_INTERVAL_HOURS } from "./constants";
+
+function nextChaseDueAt(from: Date = new Date()): Date {
+  return new Date(from.getTime() + CHASE_INTERVAL_HOURS * 60 * 60 * 1000);
+}
+
+async function createOrReplaceReminder(submissionId: string, stepOrder: number) {
+  // One active reminder per (submission, step). Upsert handles re-entry after send-back.
+  await prisma.chaseReminder.upsert({
+    where: { submissionId_stepOrder: { submissionId, stepOrder } },
+    update: {
+      nextDueAt: nextChaseDueAt(),
+      resolvedAt: null,
+      sendCount: 0,
+      lastSentAt: null,
+    },
+    create: {
+      submissionId,
+      stepOrder,
+      nextDueAt: nextChaseDueAt(),
+    },
+  });
+}
+
+async function resolveActiveReminders(submissionId: string) {
+  await prisma.chaseReminder.updateMany({
+    where: { submissionId, resolvedAt: null },
+    data: { resolvedAt: new Date() },
+  });
+}
 
 interface WorkflowStep {
   order: number;
@@ -41,6 +71,7 @@ export async function createSubmission(params: {
     throw new AppError("Workflow does not belong to this organization", 403);
   }
 
+  const now = new Date();
   const submission = await prisma.submission.create({
     data: {
       workflowId: params.workflowId,
@@ -51,11 +82,13 @@ export async function createSubmission(params: {
       payload: (params.payload ?? {}) as any,
       status: "pending",
       currentStep: 1,
+      stuckSince: now,
     },
   });
 
   const steps = workflow.steps as unknown as WorkflowStep[];
   if (steps.length > 0) {
+    await createOrReplaceReminder(submission.id, 1);
     await sendApprovalNotification({
       orgId: params.orgId,
       step: steps[0],
@@ -110,6 +143,8 @@ export async function approveSubmission(
       data: { status: "approved" },
     });
 
+    await resolveActiveReminders(submissionId);
+
     await sendStatusNotification({
       orgId: submission.orgId,
       submittedBy: submission.submittedBy,
@@ -129,8 +164,11 @@ export async function approveSubmission(
     const nextStepOrder = submission.currentStep + 1;
     const updated = await prisma.submission.update({
       where: { id: submissionId },
-      data: { currentStep: nextStepOrder },
+      data: { currentStep: nextStepOrder, stuckSince: new Date() },
     });
+
+    await resolveActiveReminders(submissionId);
+    await createOrReplaceReminder(submissionId, nextStepOrder);
 
     const nextStep = steps.find((s) => s.order === nextStepOrder);
     if (nextStep) {
@@ -184,6 +222,8 @@ export async function rejectSubmission(
     data: { status: "rejected" },
   });
 
+  await resolveActiveReminders(submissionId);
+
   await sendStatusNotification({
     orgId: submission.orgId,
     submittedBy: submission.submittedBy,
@@ -233,8 +273,12 @@ export async function sendBackSubmission(
 
   const updated = await prisma.submission.update({
     where: { id: submissionId },
-    data: { status: "sent_back", currentStep: 1 },
+    data: { status: "sent_back", currentStep: 1, stuckSince: new Date() },
   });
+
+  // Send-back hands the ball back to the submitter, so stop chasing approvers.
+  // If the submitter re-submits, createSubmission starts a new reminder.
+  await resolveActiveReminders(submissionId);
 
   await sendStatusNotification({
     orgId: submission.orgId,
