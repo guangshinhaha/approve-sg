@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100);
 
     const where: Record<string, unknown> = {
-      submission: { schoolCode: user.schoolCode },
+      submission: { orgId: user.orgId },
     };
 
     if (submissionId) where.submissionId = submissionId;

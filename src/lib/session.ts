@@ -22,7 +22,7 @@ export async function getSession(): Promise<AuthUser | null> {
 
     return {
       userId: payload.sub as string,
-      schoolCode: payload.school_code as string,
+      orgId: payload.org_id as string,
       role: payload.role as AuthUser["role"],
       email: payload.email as string,
       name: payload.name as string,

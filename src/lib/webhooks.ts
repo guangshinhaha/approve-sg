@@ -4,17 +4,17 @@ import { logger } from "./logger";
 import { WEBHOOK_TIMEOUT_MS, WEBHOOK_MAX_RETRIES } from "./constants";
 
 /**
- * Dispatch a webhook event to all registered listeners for a school.
+ * Dispatch a webhook event to all registered listeners for an organization.
  * Includes exponential backoff retry (up to 3 attempts).
  */
 export async function dispatchWebhookEvent(
-  schoolCode: string,
+  orgId: string,
   event: string,
   payload: Record<string, unknown>
 ): Promise<void> {
   const registrations = await prisma.webhookRegistration.findMany({
     where: {
-      schoolCode,
+      orgId,
       active: true,
       events: { has: event },
     },

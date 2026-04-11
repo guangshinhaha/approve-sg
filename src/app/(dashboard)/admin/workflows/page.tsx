@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/empty-state";
 
 interface Workflow {
   id: string;
-  schoolCode: string;
+  orgId: string;
   workflowType: string;
   name: string;
   steps: { order: number; label: string; approver_role: string; required: boolean }[];

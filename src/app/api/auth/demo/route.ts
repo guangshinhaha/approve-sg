@@ -2,34 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 import { SignJWT } from "jose";
 import { setSessionCookie } from "@/lib/session";
 
+const DEMO_ORG_ID = "00000000-0000-0000-0000-00000000000a";
+
 const DEMO_USERS = [
   {
     id: "demo-submitter",
     name: "Alice Tan",
     email: "alice.tan@school.edu.sg",
     role: "submitter",
-    schoolCode: "SG001",
+    orgId: DEMO_ORG_ID,
   },
   {
     id: "demo-approver",
     name: "Bob Lim",
     email: "bob.lim@school.edu.sg",
     role: "approver",
-    schoolCode: "SG001",
+    orgId: DEMO_ORG_ID,
   },
   {
     id: "demo-admin",
     name: "Carol Wong",
     email: "carol.wong@school.edu.sg",
     role: "school_admin",
-    schoolCode: "SG001",
+    orgId: DEMO_ORG_ID,
   },
   {
     id: "demo-platform",
     name: "David Ng",
     email: "david.ng@moe.gov.sg",
     role: "platform_admin",
-    schoolCode: "MOE",
+    orgId: DEMO_ORG_ID,
   },
 ] as const;
 
@@ -49,7 +51,7 @@ export async function POST(req: NextRequest) {
     name: user.name,
     email: user.email,
     role: user.role,
-    school_code: user.schoolCode,
+    org_id: user.orgId,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuer("approvesg-demo")

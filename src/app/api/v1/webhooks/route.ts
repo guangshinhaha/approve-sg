@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { randomBytes } from "crypto";
-import { verifyAuth } from "@/lib/auth";
+import { verifyApiKey, requireScope } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { handleApiError, AppError } from "@/lib/errors";
+import { handleApiError } from "@/lib/errors";
 
 const VALID_EVENTS = [
   "submission.approved",
@@ -18,15 +18,13 @@ const CreateWebhookSchema = z.object({
 });
 
 /**
- * POST /api/webhooks — Register a webhook
+ * POST /api/v1/webhooks — Register a webhook for this organization.
+ * Returns the HMAC secret once — store it. Requires scope: webhooks:write
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await verifyAuth(req);
-
-    if (user.role !== "school_admin" && user.role !== "platform_admin") {
-      throw new AppError("Only school admins can register webhooks", 403);
-    }
+    const ctx = await verifyApiKey(req);
+    requireScope(ctx, "webhooks:write");
 
     const body = await req.json();
     const data = CreateWebhookSchema.parse(body);
@@ -35,39 +33,37 @@ export async function POST(req: NextRequest) {
 
     const webhook = await prisma.webhookRegistration.create({
       data: {
-        orgId: user.orgId,
+        orgId: ctx.orgId,
         url: data.url,
         events: data.events,
         secret,
-        createdBy: user.userId,
+        createdBy: `api_key:${ctx.apiKeyId}`,
       },
     });
 
-    return NextResponse.json(
-      { ...webhook, secret },
-      { status: 201 }
-    );
+    return NextResponse.json({ ...webhook, secret }, { status: 201 });
   } catch (error) {
     return handleApiError(error);
   }
 }
 
 /**
- * GET /api/webhooks — List webhooks for the school
+ * GET /api/v1/webhooks — List webhooks for this organization. Omits secrets.
+ * Requires scope: webhooks:read
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await verifyAuth(req);
+    const ctx = await verifyApiKey(req);
+    requireScope(ctx, "webhooks:read", "webhooks:write");
 
     const webhooks = await prisma.webhookRegistration.findMany({
-      where: { orgId: user.orgId },
+      where: { orgId: ctx.orgId },
       select: {
         id: true,
         url: true,
         events: true,
         active: true,
         createdAt: true,
-        // Exclude secret from list responses
       },
     });
 

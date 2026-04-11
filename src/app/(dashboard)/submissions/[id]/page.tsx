@@ -17,7 +17,7 @@ interface SubmissionDetail {
   id: string;
   workflowId: string;
   workflowName: string;
-  schoolCode: string;
+  orgId: string;
   externalRef: string | null;
   externalType: string | null;
   payload: Record<string, unknown> | null;

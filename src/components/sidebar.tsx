@@ -8,6 +8,7 @@ import {
   GitBranch,
   Activity,
   Webhook,
+  Key,
   LogOut,
   CheckCircle,
 } from "lucide-react";
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { href: "/admin/workflows", label: "Workflows", icon: GitBranch, roles: ["school_admin", "platform_admin"] },
   { href: "/admin/audit", label: "Audit Trail", icon: Activity, roles: ["school_admin", "platform_admin"] },
   { href: "/admin/webhooks", label: "Webhooks", icon: Webhook, roles: ["school_admin", "platform_admin"] },
+  { href: "/admin/api-keys", label: "API Keys", icon: Key, roles: ["school_admin", "platform_admin"] },
 ];
 
 export function AppSidebar({ user }: SidebarProps) {
@@ -81,7 +83,7 @@ export function AppSidebar({ user }: SidebarProps) {
           <p className="text-sm font-semibold text-approve-text truncate">{user.name}</p>
           <p className="text-xs text-approve-text-secondary truncate">{user.email}</p>
           <p className="text-xs text-approve-text-secondary mt-0.5">
-            School {user.schoolCode} · {user.role.replace("_", " ")}
+            {user.role.replace("_", " ")}
           </p>
         </div>
         <button

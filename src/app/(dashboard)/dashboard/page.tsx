@@ -55,7 +55,7 @@ export default async function DashboardPage() {
     <>
       <PageHeader
         title={`Welcome, ${user.name.split(" ")[0]}`}
-        description={`${user.role.replace("_", " ")} · School ${user.schoolCode}`}
+        description={user.role.replace("_", " ")}
       />
 
       {/* Stats */}

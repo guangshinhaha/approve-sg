@@ -1,30 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { verifyAuth, enforceOrgAccess } from "@/lib/auth";
+import { verifyApiKey, requireScope } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { createSubmission } from "@/lib/routing";
 import { handleApiError } from "@/lib/errors";
 
 const CreateSubmissionSchema = z.object({
   workflowId: z.string().uuid(),
+  submittedBy: z.string().min(1).max(255),
   externalRef: z.string().optional(),
   externalType: z.string().optional(),
   payload: z.record(z.unknown()).optional(),
 });
 
 /**
- * POST /api/submissions — Create a new submission
+ * POST /api/v1/submissions — Create a submission on behalf of a user in the host product.
+ * Requires scope: submissions:write
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await verifyAuth(req);
+    const ctx = await verifyApiKey(req);
+    requireScope(ctx, "submissions:write");
+
     const body = await req.json();
     const data = CreateSubmissionSchema.parse(body);
 
     const submission = await createSubmission({
       workflowId: data.workflowId,
-      orgId: user.orgId,
-      submittedBy: user.userId,
+      orgId: ctx.orgId,
+      submittedBy: data.submittedBy,
       externalRef: data.externalRef,
       externalType: data.externalType,
       payload: data.payload,
@@ -37,28 +41,25 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * GET /api/submissions — List submissions for the current user's school
+ * GET /api/v1/submissions — List submissions for the caller's organization.
+ * Requires scope: submissions:read
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await verifyAuth(req);
+    const ctx = await verifyApiKey(req);
+    requireScope(ctx, "submissions:read", "submissions:write");
+
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
     const workflowId = searchParams.get("workflowId");
+    const submittedBy = searchParams.get("submittedBy");
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 100);
 
-    const where: Record<string, unknown> = {
-      orgId: user.orgId,
-    };
-
+    const where: Record<string, unknown> = { orgId: ctx.orgId };
     if (status) where.status = status;
     if (workflowId) where.workflowId = workflowId;
-
-    // Submitters only see their own; approvers and admins see all for school
-    if (user.role === "submitter") {
-      where.submittedBy = user.userId;
-    }
+    if (submittedBy) where.submittedBy = submittedBy;
 
     const [submissions, total] = await Promise.all([
       prisma.submission.findMany({

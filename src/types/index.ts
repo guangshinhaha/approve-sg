@@ -7,7 +7,7 @@ export interface WorkflowStep {
 
 export interface WorkflowConfig {
   workflow_type: string;
-  school_code: string;
+  org_id: string;
   name: string;
   steps: WorkflowStep[];
 }
@@ -15,7 +15,7 @@ export interface WorkflowConfig {
 export interface SubmissionResponse {
   id: string;
   workflowId: string;
-  schoolCode: string;
+  orgId: string;
   externalRef: string | null;
   externalType: string | null;
   payload: Record<string, unknown> | null;

@@ -2,15 +2,43 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const SCHOOL = "SG001";
+const ORG_ID = "00000000-0000-0000-0000-00000000000a";
 
 async function main() {
-  // ── Workflows ──────────────────────────────────────────────
-  const announcementWf = await prisma.workflow.upsert({
-    where: { schoolCode_workflowType: { schoolCode: SCHOOL, workflowType: "announcement_approval" } },
+  // ── Default organization (legacy MOE pilot) ────────────────
+  const org = await prisma.organization.upsert({
+    where: { id: ORG_ID },
     update: {},
     create: {
-      schoolCode: SCHOOL,
+      id: ORG_ID,
+      name: "ApproveSG Demo School",
+      slug: "demo-school",
+      schoolCode: "SG001",
+      plan: "free",
+    },
+  });
+
+  // ── Org members (demo personas) ────────────────────────────
+  const members = [
+    { email: "alice.tan@school.edu.sg", name: "Alice Tan", roles: ["submitter"], externalUserId: "demo-submitter" },
+    { email: "bob.lim@school.edu.sg", name: "Bob Lim", roles: ["approver"], externalUserId: "demo-approver" },
+    { email: "carol.wong@school.edu.sg", name: "Carol Wong", roles: ["school_admin"], externalUserId: "demo-admin" },
+    { email: "david.ng@moe.gov.sg", name: "David Ng", roles: ["platform_admin"], externalUserId: "demo-platform" },
+  ];
+  for (const m of members) {
+    await prisma.orgMember.upsert({
+      where: { orgId_email: { orgId: org.id, email: m.email } },
+      update: { name: m.name, roles: m.roles, externalUserId: m.externalUserId },
+      create: { orgId: org.id, ...m },
+    });
+  }
+
+  // ── Workflows ──────────────────────────────────────────────
+  const announcementWf = await prisma.workflow.upsert({
+    where: { orgId_workflowType: { orgId: org.id, workflowType: "announcement_approval" } },
+    update: {},
+    create: {
+      orgId: org.id,
       workflowType: "announcement_approval",
       name: "Parent Announcement Approval",
       createdBy: "seed",
@@ -22,10 +50,10 @@ async function main() {
   });
 
   const resourceWf = await prisma.workflow.upsert({
-    where: { schoolCode_workflowType: { schoolCode: SCHOOL, workflowType: "resource_request" } },
+    where: { orgId_workflowType: { orgId: org.id, workflowType: "resource_request" } },
     update: {},
     create: {
-      schoolCode: SCHOOL,
+      orgId: org.id,
       workflowType: "resource_request",
       name: "Resource Request",
       createdBy: "seed",
@@ -36,10 +64,10 @@ async function main() {
   });
 
   const programmeWf = await prisma.workflow.upsert({
-    where: { schoolCode_workflowType: { schoolCode: SCHOOL, workflowType: "programme_proposal" } },
+    where: { orgId_workflowType: { orgId: org.id, workflowType: "programme_proposal" } },
     update: {},
     create: {
-      schoolCode: SCHOOL,
+      orgId: org.id,
       workflowType: "programme_proposal",
       name: "Programme Proposal",
       createdBy: "seed",
@@ -52,14 +80,13 @@ async function main() {
   });
 
   // ── Submissions ────────────────────────────────────────────
-  // 1. Approved announcement
   const s1 = await prisma.submission.upsert({
     where: { id: "00000000-0000-0000-0000-000000000001" },
     update: {},
     create: {
       id: "00000000-0000-0000-0000-000000000001",
+      orgId: org.id,
       workflowId: announcementWf.id,
-      schoolCode: SCHOOL,
       submittedBy: "alice.tan@school.edu.sg",
       status: "approved",
       currentStep: 2,
@@ -95,14 +122,13 @@ async function main() {
     ],
   });
 
-  // 2. Pending announcement (waiting on HOD)
   const s2 = await prisma.submission.upsert({
     where: { id: "00000000-0000-0000-0000-000000000002" },
     update: {},
     create: {
       id: "00000000-0000-0000-0000-000000000002",
+      orgId: org.id,
       workflowId: announcementWf.id,
-      schoolCode: SCHOOL,
       submittedBy: "alice.tan@school.edu.sg",
       status: "pending",
       currentStep: 1,
@@ -114,14 +140,13 @@ async function main() {
     },
   });
 
-  // 3. Rejected resource request
   const s3 = await prisma.submission.upsert({
     where: { id: "00000000-0000-0000-0000-000000000003" },
     update: {},
     create: {
       id: "00000000-0000-0000-0000-000000000003",
+      orgId: org.id,
       workflowId: resourceWf.id,
-      schoolCode: SCHOOL,
       submittedBy: "alice.tan@school.edu.sg",
       status: "rejected",
       currentStep: 1,
@@ -148,14 +173,13 @@ async function main() {
     ],
   });
 
-  // 4. Pending programme proposal (at step 2)
   const s4 = await prisma.submission.upsert({
     where: { id: "00000000-0000-0000-0000-000000000004" },
     update: {},
     create: {
       id: "00000000-0000-0000-0000-000000000004",
+      orgId: org.id,
       workflowId: programmeWf.id,
-      schoolCode: SCHOOL,
       submittedBy: "alice.tan@school.edu.sg",
       status: "pending",
       currentStep: 2,
@@ -183,14 +207,13 @@ async function main() {
     ],
   });
 
-  // 5. Sent-back resource request
   const s5 = await prisma.submission.upsert({
     where: { id: "00000000-0000-0000-0000-000000000005" },
     update: {},
     create: {
       id: "00000000-0000-0000-0000-000000000005",
+      orgId: org.id,
       workflowId: resourceWf.id,
-      schoolCode: SCHOOL,
       submittedBy: "alice.tan@school.edu.sg",
       status: "sent_back",
       currentStep: 1,
@@ -218,6 +241,7 @@ async function main() {
   });
 
   console.log("Seed complete:", {
+    org: org.id,
     workflows: [announcementWf.id, resourceWf.id, programmeWf.id],
     submissions: [s1.id, s2.id, s3.id, s4.id, s5.id],
   });

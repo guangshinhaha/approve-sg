@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { verifyAuth, enforceSchoolAccess } from "@/lib/auth";
+import { verifyAuth, enforceOrgAccess } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { handleApiError, AppError, NotFoundError } from "@/lib/errors";
 
@@ -32,7 +32,7 @@ export async function GET(
     });
 
     if (!workflow) throw new NotFoundError("Workflow");
-    enforceSchoolAccess(user, workflow.schoolCode);
+    enforceOrgAccess(user, workflow.orgId);
 
     return NextResponse.json(workflow);
   } catch (error) {
@@ -59,7 +59,7 @@ export async function PUT(
     });
 
     if (!workflow) throw new NotFoundError("Workflow");
-    enforceSchoolAccess(user, workflow.schoolCode);
+    enforceOrgAccess(user, workflow.orgId);
 
     const body = await req.json();
     const data = UpdateWorkflowSchema.parse(body);

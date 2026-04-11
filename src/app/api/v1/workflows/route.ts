@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { verifyAuth } from "@/lib/auth";
+import { verifyApiKey, requireScope } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { handleApiError, AppError } from "@/lib/errors";
 
@@ -18,14 +18,16 @@ const CreateWorkflowSchema = z.object({
 });
 
 /**
- * GET /api/workflows — List configured workflows for the user's school
+ * GET /api/v1/workflows — List active workflows for the caller's organization.
+ * Requires scope: workflows:read
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await verifyAuth(req);
+    const ctx = await verifyApiKey(req);
+    requireScope(ctx, "workflows:read", "workflows:write");
 
     const workflows = await prisma.workflow.findMany({
-      where: { orgId: user.orgId, active: true },
+      where: { orgId: ctx.orgId, active: true },
       orderBy: { createdAt: "desc" },
     });
 
@@ -36,29 +38,25 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/workflows — Create a new workflow configuration (school admin only)
+ * POST /api/v1/workflows — Create a workflow definition.
+ * Requires scope: workflows:write
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await verifyAuth(req);
-
-    if (user.role !== "school_admin" && user.role !== "platform_admin") {
-      throw new AppError("Only school admins can create workflows", 403);
-    }
+    const ctx = await verifyApiKey(req);
+    requireScope(ctx, "workflows:write");
 
     const body = await req.json();
     const data = CreateWorkflowSchema.parse(body);
 
-    // Check for duplicate workflow type in this school
     const existing = await prisma.workflow.findUnique({
       where: {
         orgId_workflowType: {
-          orgId: user.orgId,
+          orgId: ctx.orgId,
           workflowType: data.workflowType,
         },
       },
     });
-
     if (existing) {
       throw new AppError(
         `Workflow type "${data.workflowType}" already exists for this organization`,
@@ -68,11 +66,11 @@ export async function POST(req: NextRequest) {
 
     const workflow = await prisma.workflow.create({
       data: {
-        orgId: user.orgId,
+        orgId: ctx.orgId,
         workflowType: data.workflowType,
         name: data.name,
         steps: data.steps,
-        createdBy: user.userId,
+        createdBy: `api_key:${ctx.apiKeyId}`,
       },
     });
 

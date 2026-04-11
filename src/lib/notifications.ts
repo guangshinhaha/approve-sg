@@ -15,14 +15,14 @@ const EMAIL_FROM = process.env.EMAIL_FROM || "noreply@approve.moe.gov.sg";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://approve.moe.gov.sg";
 
 interface ApprovalNotificationParams {
-  schoolCode: string;
+  orgId: string;
   step: { label: string; approver_role: string };
   submissionId: string;
   approverEmail?: string;
 }
 
 interface StatusNotificationParams {
-  schoolCode: string;
+  orgId: string;
   submittedBy: string;
   submissionId: string;
   status: string;
@@ -62,7 +62,7 @@ export async function sendApprovalNotification(
       submissionId: params.submissionId,
       step: params.step.label,
       role: params.step.approver_role,
-      schoolCode: params.schoolCode,
+      orgId: params.orgId,
     },
     "Approval notification triggered"
   );
@@ -76,7 +76,7 @@ export async function sendApprovalNotification(
         <h2 style="color: #1a1a1a;">Approval Required</h2>
         <p>A submission requires your review at the <strong>${params.step.label}</strong> step.</p>
         <p><strong>Submission ID:</strong> ${params.submissionId}</p>
-        <p><strong>School:</strong> ${params.schoolCode}</p>
+        <p><strong>Organization:</strong> ${params.orgId}</p>
         <p>
           <a href="${APP_URL}/api/submissions/${params.submissionId}"
              style="display: inline-block; padding: 10px 20px; background: #0066cc; color: white; text-decoration: none; border-radius: 4px;">

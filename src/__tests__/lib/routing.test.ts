@@ -5,7 +5,7 @@ import {
   sendBackSubmission,
 } from "@/lib/routing";
 import { prisma } from "@/lib/db";
-import { AuthUser } from "@/lib/auth";
+import type { ActionActor } from "@/lib/routing";
 
 // Mock dependencies
 jest.mock("@/lib/db", () => ({
@@ -27,7 +27,7 @@ jest.mock("@/lib/webhooks", () => ({
 
 const mockWorkflow = {
   id: "wf-1",
-  schoolCode: "3001",
+  orgId: "3001",
   workflowType: "announcement_approval",
   name: "Announcement Approval",
   steps: [
@@ -37,12 +37,9 @@ const mockWorkflow = {
   active: true,
 };
 
-const mockApprover: AuthUser = {
-  userId: "approver-1",
-  schoolCode: "3001",
+const mockApprover: ActionActor = {
+  id: "approver-1",
   role: "approver",
-  email: "approver@schools.gov.sg",
-  name: "Test Approver",
 };
 
 describe("createSubmission", () => {
@@ -51,14 +48,14 @@ describe("createSubmission", () => {
     (prisma.submission.create as jest.Mock).mockResolvedValue({
       id: "sub-1",
       workflowId: "wf-1",
-      schoolCode: "3001",
+      orgId: "3001",
       status: "pending",
       currentStep: 1,
     });
 
     const result = await createSubmission({
       workflowId: "wf-1",
-      schoolCode: "3001",
+      orgId: "3001",
       submittedBy: "teacher-1",
     });
 
@@ -68,7 +65,7 @@ describe("createSubmission", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           workflowId: "wf-1",
-          schoolCode: "3001",
+          orgId: "3001",
           status: "pending",
           currentStep: 1,
         }),
@@ -82,7 +79,7 @@ describe("createSubmission", () => {
     await expect(
       createSubmission({
         workflowId: "nonexistent",
-        schoolCode: "3001",
+        orgId: "3001",
         submittedBy: "teacher-1",
       })
     ).rejects.toThrow("Workflow not found");
@@ -94,10 +91,10 @@ describe("createSubmission", () => {
     await expect(
       createSubmission({
         workflowId: "wf-1",
-        schoolCode: "9999",
+        orgId: "9999",
         submittedBy: "teacher-1",
       })
-    ).rejects.toThrow("Workflow does not belong to this school");
+    ).rejects.toThrow("Workflow does not belong to this organization");
   });
 });
 
@@ -105,7 +102,7 @@ describe("approveSubmission", () => {
   const mockSubmission = {
     id: "sub-1",
     workflowId: "wf-1",
-    schoolCode: "3001",
+    orgId: "3001",
     status: "pending",
     currentStep: 1,
     submittedBy: "teacher-1",
@@ -171,7 +168,7 @@ describe("rejectSubmission", () => {
   it("should reject and log action", async () => {
     const mockSubmission = {
       id: "sub-1",
-      schoolCode: "3001",
+      orgId: "3001",
       status: "pending",
       currentStep: 1,
       submittedBy: "teacher-1",
@@ -204,7 +201,7 @@ describe("sendBackSubmission", () => {
   it("should send back and reset to step 1", async () => {
     const mockSubmission = {
       id: "sub-1",
-      schoolCode: "3001",
+      orgId: "3001",
       status: "pending",
       currentStep: 2,
       submittedBy: "teacher-1",

@@ -1,6 +1,5 @@
 import { prisma } from "./db";
 import { AppError, NotFoundError } from "./errors";
-import { AuthUser } from "./auth";
 import { dispatchWebhookEvent } from "./webhooks";
 import { sendApprovalNotification, sendStatusNotification } from "./notifications";
 
@@ -12,11 +11,22 @@ interface WorkflowStep {
 }
 
 /**
+ * The minimal identity needed to record an approval action. For session-based
+ * auth, callers pass the logged-in user's id and role. For API-key auth,
+ * callers pass the actor identity supplied in the request body by the host
+ * product.
+ */
+export interface ActionActor {
+  id: string;
+  role: string;
+}
+
+/**
  * Create a new submission and start the approval flow.
  */
 export async function createSubmission(params: {
   workflowId: string;
-  schoolCode: string;
+  orgId: string;
   submittedBy: string;
   externalRef?: string;
   externalType?: string;
@@ -27,14 +37,14 @@ export async function createSubmission(params: {
   });
 
   if (!workflow) throw new NotFoundError("Workflow");
-  if (workflow.schoolCode !== params.schoolCode) {
-    throw new AppError("Workflow does not belong to this school", 403);
+  if (workflow.orgId !== params.orgId) {
+    throw new AppError("Workflow does not belong to this organization", 403);
   }
 
   const submission = await prisma.submission.create({
     data: {
       workflowId: params.workflowId,
-      schoolCode: params.schoolCode,
+      orgId: params.orgId,
       submittedBy: params.submittedBy,
       externalRef: params.externalRef,
       externalType: params.externalType,
@@ -47,7 +57,7 @@ export async function createSubmission(params: {
   const steps = workflow.steps as unknown as WorkflowStep[];
   if (steps.length > 0) {
     await sendApprovalNotification({
-      schoolCode: params.schoolCode,
+      orgId: params.orgId,
       step: steps[0],
       submissionId: submission.id,
     });
@@ -62,7 +72,7 @@ export async function createSubmission(params: {
  */
 export async function approveSubmission(
   submissionId: string,
-  user: AuthUser,
+  actor: ActionActor,
   comments?: string
 ) {
   const submission = await prisma.submission.findUnique({
@@ -85,8 +95,8 @@ export async function approveSubmission(
       submissionId,
       stepOrder: submission.currentStep,
       action: "approved",
-      actor: user.userId,
-      actorRole: user.role,
+      actor: actor.id,
+      actorRole: actor.role,
       comments,
     },
   });
@@ -101,13 +111,13 @@ export async function approveSubmission(
     });
 
     await sendStatusNotification({
-      schoolCode: submission.schoolCode,
+      orgId: submission.orgId,
       submittedBy: submission.submittedBy,
       submissionId,
       status: "approved",
     });
 
-    await dispatchWebhookEvent(submission.schoolCode, "submission.approved", {
+    await dispatchWebhookEvent(submission.orgId, "submission.approved", {
       submissionId,
       externalRef: submission.externalRef,
       externalType: submission.externalType,
@@ -125,13 +135,13 @@ export async function approveSubmission(
     const nextStep = steps.find((s) => s.order === nextStepOrder);
     if (nextStep) {
       await sendApprovalNotification({
-        schoolCode: submission.schoolCode,
+        orgId: submission.orgId,
         step: nextStep,
         submissionId,
       });
     }
 
-    await dispatchWebhookEvent(submission.schoolCode, "step.completed", {
+    await dispatchWebhookEvent(submission.orgId, "step.completed", {
       submissionId,
       completedStep: submission.currentStep,
       nextStep: nextStepOrder,
@@ -146,7 +156,7 @@ export async function approveSubmission(
  */
 export async function rejectSubmission(
   submissionId: string,
-  user: AuthUser,
+  actor: ActionActor,
   comments?: string
 ) {
   const submission = await prisma.submission.findUnique({
@@ -163,8 +173,8 @@ export async function rejectSubmission(
       submissionId,
       stepOrder: submission.currentStep,
       action: "rejected",
-      actor: user.userId,
-      actorRole: user.role,
+      actor: actor.id,
+      actorRole: actor.role,
       comments,
     },
   });
@@ -175,14 +185,14 @@ export async function rejectSubmission(
   });
 
   await sendStatusNotification({
-    schoolCode: submission.schoolCode,
+    orgId: submission.orgId,
     submittedBy: submission.submittedBy,
     submissionId,
     status: "rejected",
     comments,
   });
 
-  await dispatchWebhookEvent(submission.schoolCode, "submission.rejected", {
+  await dispatchWebhookEvent(submission.orgId, "submission.rejected", {
     submissionId,
     externalRef: submission.externalRef,
     externalType: submission.externalType,
@@ -198,7 +208,7 @@ export async function rejectSubmission(
  */
 export async function sendBackSubmission(
   submissionId: string,
-  user: AuthUser,
+  actor: ActionActor,
   comments?: string
 ) {
   const submission = await prisma.submission.findUnique({
@@ -215,8 +225,8 @@ export async function sendBackSubmission(
       submissionId,
       stepOrder: submission.currentStep,
       action: "sent_back",
-      actor: user.userId,
-      actorRole: user.role,
+      actor: actor.id,
+      actorRole: actor.role,
       comments,
     },
   });
@@ -227,14 +237,14 @@ export async function sendBackSubmission(
   });
 
   await sendStatusNotification({
-    schoolCode: submission.schoolCode,
+    orgId: submission.orgId,
     submittedBy: submission.submittedBy,
     submissionId,
     status: "sent_back",
     comments,
   });
 
-  await dispatchWebhookEvent(submission.schoolCode, "submission.sent_back", {
+  await dispatchWebhookEvent(submission.orgId, "submission.sent_back", {
     submissionId,
     externalRef: submission.externalRef,
     externalType: submission.externalType,
