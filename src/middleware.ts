@@ -4,7 +4,8 @@ const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX || "100", 10);
 const SESSION_COOKIE = "approvesg_session";
 
-// In-memory rate limiter (use Redis in production for multi-instance)
+// In-memory rate limiter with size cap (use Redis for multi-instance)
+const RATE_LIMIT_MAX_ENTRIES = 10_000;
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
 function getRateLimitKey(req: NextRequest): string {
@@ -16,6 +17,11 @@ function checkRateLimit(key: string): { allowed: boolean; remaining: number } {
   const entry = rateLimitStore.get(key);
 
   if (!entry || now > entry.resetAt) {
+    // Evict if at capacity before adding
+    if (rateLimitStore.size >= RATE_LIMIT_MAX_ENTRIES) {
+      const firstKey = rateLimitStore.keys().next().value;
+      if (firstKey) rateLimitStore.delete(firstKey);
+    }
     rateLimitStore.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
     return { allowed: true, remaining: RATE_LIMIT_MAX - 1 };
   }
@@ -28,13 +34,13 @@ function checkRateLimit(key: string): { allowed: boolean; remaining: number } {
   return { allowed: true, remaining: RATE_LIMIT_MAX - entry.count };
 }
 
-// Periodic cleanup of expired entries
+// Cleanup every 10s instead of 60s to prevent memory spikes
 setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of rateLimitStore) {
     if (now > entry.resetAt) rateLimitStore.delete(key);
   }
-}, 60_000);
+}, 10_000);
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

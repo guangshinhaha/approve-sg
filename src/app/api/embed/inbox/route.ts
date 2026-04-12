@@ -15,6 +15,7 @@ interface WorkflowStep {
  *
  * Finds pending submissions where the current step's approver_role matches
  * one of the embed user's roles (resolved via OrgMember lookup).
+ * Capped at 200 rows to prevent memory overload at scale.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -28,29 +29,36 @@ export async function GET(req: NextRequest) {
 
     const userRoles = member?.roles ?? [user.role];
 
-    // Get all pending submissions in this org with their workflows
+    // Fetch pending submissions with only needed fields (capped at 200)
     const submissions = await prisma.submission.findMany({
       where: { orgId: user.orgId, status: "pending" },
-      include: { workflow: true },
+      select: {
+        id: true,
+        currentStep: true,
+        externalRef: true,
+        externalType: true,
+        submittedBy: true,
+        submittedAt: true,
+        stuckSince: true,
+        workflow: { select: { name: true, workflowType: true, steps: true } },
+      },
       orderBy: { stuckSince: "asc" },
+      take: 200,
     });
 
     // Filter to submissions where the current step's approver_role
     // matches one of the user's roles
-    const inbox = submissions.filter((sub) => {
+    const result = [];
+    for (const sub of submissions) {
       const steps = sub.workflow.steps as unknown as WorkflowStep[];
       const currentStepDef = steps.find((s) => s.order === sub.currentStep);
-      return currentStepDef && userRoles.includes(currentStepDef.approver_role);
-    });
+      if (!currentStepDef || !userRoles.includes(currentStepDef.approver_role)) continue;
 
-    const result = inbox.map((sub) => {
-      const steps = sub.workflow.steps as unknown as WorkflowStep[];
-      const currentStepDef = steps.find((s) => s.order === sub.currentStep)!;
       const stuckMs = sub.stuckSince
         ? Date.now() - new Date(sub.stuckSince).getTime()
         : 0;
 
-      return {
+      result.push({
         id: sub.id,
         workflowName: sub.workflow.name,
         workflowType: sub.workflow.workflowType,
@@ -64,8 +72,8 @@ export async function GET(req: NextRequest) {
         submittedAt: sub.submittedAt.toISOString(),
         stuckSince: sub.stuckSince?.toISOString() ?? null,
         stuckForMs: stuckMs,
-      };
-    });
+      });
+    }
 
     return NextResponse.json({ data: result, total: result.length });
   } catch (error) {

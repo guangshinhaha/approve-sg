@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
 
     const data = await computeAging(ctx.orgId, { workflowId, since });
 
-    return NextResponse.json({ data });
+    const response = NextResponse.json({ data });
+    response.headers.set("Cache-Control", "private, max-age=60");
+    return response;
   } catch (error) {
     return handleApiError(error);
   }

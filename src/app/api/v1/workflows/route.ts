@@ -31,7 +31,9 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ data: workflows });
+    const response = NextResponse.json({ data: workflows });
+    response.headers.set("Cache-Control", "private, max-age=300");
+    return response;
   } catch (error) {
     return handleApiError(error);
   }

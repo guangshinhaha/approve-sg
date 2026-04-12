@@ -74,9 +74,37 @@ export function enforceOrgAccess(user: AuthUser, orgId: string): void {
   }
 }
 
+// ── API key cache (avoids DB lookup on every request) ──────────────
+const API_KEY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const API_KEY_CACHE_MAX = 1000;
+const apiKeyCache = new Map<string, { ctx: ApiKeyContext; revokedAt: Date | null; expiresAt: number }>();
+
+function getCachedApiKey(hash: string) {
+  const entry = apiKeyCache.get(hash);
+  if (!entry || Date.now() > entry.expiresAt) {
+    apiKeyCache.delete(hash);
+    return null;
+  }
+  return entry;
+}
+
+function cacheApiKey(hash: string, key: { id: string; orgId: string; scopes: string[]; revokedAt: Date | null }) {
+  // Evict oldest entries if cache is full
+  if (apiKeyCache.size >= API_KEY_CACHE_MAX) {
+    const firstKey = apiKeyCache.keys().next().value;
+    if (firstKey) apiKeyCache.delete(firstKey);
+  }
+  apiKeyCache.set(hash, {
+    ctx: { type: "api_key", apiKeyId: key.id, orgId: key.orgId, scopes: key.scopes },
+    revokedAt: key.revokedAt,
+    expiresAt: Date.now() + API_KEY_CACHE_TTL,
+  });
+}
+
 /**
  * Verify an API key from the Authorization header and resolve it to an
  * org-scoped context. Used by /api/v1 routes for machine-to-machine auth.
+ * Cached for 5 minutes to avoid DB lookup on every request.
  */
 export async function verifyApiKey(req: NextRequest): Promise<ApiKeyContext> {
   const authHeader = req.headers.get("authorization");
@@ -90,11 +118,22 @@ export async function verifyApiKey(req: NextRequest): Promise<ApiKeyContext> {
   }
 
   const hashed = hashApiKey(raw);
+
+  // Check cache first
+  const cached = getCachedApiKey(hashed);
+  if (cached) {
+    if (cached.revokedAt) throw new AuthError("API key revoked");
+    return cached.ctx;
+  }
+
+  // Cache miss — hit DB
   const key = await prisma.apiKey.findUnique({ where: { hashedKey: hashed } });
   if (!key) throw new AuthError("Invalid API key");
   if (key.revokedAt) throw new AuthError("API key revoked");
 
-  // Fire-and-forget; we don't block the request on this write.
+  cacheApiKey(hashed, key);
+
+  // Fire-and-forget lastUsedAt update
   void prisma.apiKey
     .update({ where: { id: key.id }, data: { lastUsedAt: new Date() } })
     .catch(() => {});
