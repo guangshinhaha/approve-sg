@@ -12,17 +12,11 @@ interface ChaseCycleResult {
   errors: number;
 }
 
+const BATCH_SIZE = 50;
+
 /**
- * Run one pass of the chase engine. Intended to be invoked by a cron job
- * (Railway Cron service hits /api/internal/chase on a schedule).
- *
- * For every ChaseReminder that is active and due, we:
- *   - Load the submission + workflow + current step config
- *   - If the submission is no longer pending (or moved to a different step),
- *     resolve the reminder and skip.
- *   - If the reminder has hit CHASE_MAX_SEND_COUNT, resolve it and skip.
- *   - Otherwise, resolve the current step's approver_role to org member emails
- *     and send a chase email. Bump sendCount and nextDueAt.
+ * Run one pass of the chase engine. Processes reminders in parallel batches
+ * of 50 for throughput at scale.
  */
 export async function runChaseCycle(): Promise<ChaseCycleResult> {
   const now = new Date();
@@ -41,7 +35,14 @@ export async function runChaseCycle(): Promise<ChaseCycleResult> {
     },
     include: {
       submission: {
-        include: { workflow: true },
+        select: {
+          id: true,
+          orgId: true,
+          status: true,
+          currentStep: true,
+          stuckSince: true,
+          workflow: { select: { steps: true } },
+        },
       },
     },
   });
@@ -49,73 +50,80 @@ export async function runChaseCycle(): Promise<ChaseCycleResult> {
   result.checked = dueReminders.length;
   logger.info({ count: dueReminders.length }, "Chase cycle started");
 
-  for (const reminder of dueReminders) {
-    try {
-      const submission = reminder.submission;
+  // Process in parallel batches
+  for (let i = 0; i < dueReminders.length; i += BATCH_SIZE) {
+    const batch = dueReminders.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.allSettled(
+      batch.map((reminder) => processReminder(reminder, now))
+    );
 
-      // Stop chasing if the submission has moved on.
-      if (submission.status !== "pending" || submission.currentStep !== reminder.stepOrder) {
-        await prisma.chaseReminder.update({
-          where: { id: reminder.id },
-          data: { resolvedAt: now },
-        });
-        result.resolved++;
-        continue;
-      }
-
-      // Safety cap: stop chasing after CHASE_MAX_SEND_COUNT emails.
-      if (reminder.sendCount >= CHASE_MAX_SEND_COUNT) {
-        await prisma.chaseReminder.update({
-          where: { id: reminder.id },
-          data: { resolvedAt: now },
-        });
-        result.resolved++;
-        continue;
-      }
-
-      const steps = submission.workflow.steps as unknown as WorkflowStep[];
-      const currentStepConfig = steps.find((s) => s.order === submission.currentStep);
-      if (!currentStepConfig) {
-        logger.warn({ submissionId: submission.id }, "Current step config missing, resolving reminder");
-        await prisma.chaseReminder.update({
-          where: { id: reminder.id },
-          data: { resolvedAt: now },
-        });
-        result.resolved++;
-        continue;
-      }
-
-      const { recipientCount } = await sendChaseNotification({
-        orgId: submission.orgId,
-        submissionId: submission.id,
-        stepLabel: currentStepConfig.label,
-        approverRole: currentStepConfig.approver_role,
-        sendCount: reminder.sendCount,
-        stuckSince: submission.stuckSince,
-      });
-
-      const nextDueAt = new Date(now.getTime() + CHASE_INTERVAL_HOURS * 60 * 60 * 1000);
-
-      await prisma.chaseReminder.update({
-        where: { id: reminder.id },
-        data: {
-          sendCount: { increment: 1 },
-          lastSentAt: now,
-          nextDueAt,
-        },
-      });
-
-      if (recipientCount > 0) {
-        result.sent++;
+    for (const r of batchResults) {
+      if (r.status === "fulfilled") {
+        result[r.value]++;
       } else {
-        result.skipped++;
+        result.errors++;
       }
-    } catch (err) {
-      logger.error({ err, reminderId: reminder.id }, "Chase reminder failed");
-      result.errors++;
     }
   }
 
   logger.info(result, "Chase cycle complete");
   return result;
+}
+
+async function processReminder(
+  reminder: any,
+  now: Date
+): Promise<"sent" | "skipped" | "resolved"> {
+  const submission = reminder.submission;
+
+  // Stop chasing if the submission has moved on
+  if (submission.status !== "pending" || submission.currentStep !== reminder.stepOrder) {
+    await prisma.chaseReminder.update({
+      where: { id: reminder.id },
+      data: { resolvedAt: now },
+    });
+    return "resolved";
+  }
+
+  // Safety cap
+  if (reminder.sendCount >= CHASE_MAX_SEND_COUNT) {
+    await prisma.chaseReminder.update({
+      where: { id: reminder.id },
+      data: { resolvedAt: now },
+    });
+    return "resolved";
+  }
+
+  const steps = submission.workflow.steps as unknown as WorkflowStep[];
+  const currentStepConfig = steps.find((s) => s.order === submission.currentStep);
+  if (!currentStepConfig) {
+    logger.warn({ submissionId: submission.id }, "Current step config missing, resolving reminder");
+    await prisma.chaseReminder.update({
+      where: { id: reminder.id },
+      data: { resolvedAt: now },
+    });
+    return "resolved";
+  }
+
+  const { recipientCount } = await sendChaseNotification({
+    orgId: submission.orgId,
+    submissionId: submission.id,
+    stepLabel: currentStepConfig.label,
+    approverRole: currentStepConfig.approver_role,
+    sendCount: reminder.sendCount,
+    stuckSince: submission.stuckSince,
+  });
+
+  const nextDueAt = new Date(now.getTime() + CHASE_INTERVAL_HOURS * 60 * 60 * 1000);
+
+  await prisma.chaseReminder.update({
+    where: { id: reminder.id },
+    data: {
+      sendCount: { increment: 1 },
+      lastSentAt: now,
+      nextDueAt,
+    },
+  });
+
+  return recipientCount > 0 ? "sent" : "skipped";
 }
