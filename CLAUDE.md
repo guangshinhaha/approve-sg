@@ -103,6 +103,8 @@ LOG_LEVEL=info
 RATE_LIMIT_MAX=100
 EMAIL_FROM=noreply@approve.local
 CRON_SECRET=<generated>
+UPSTASH_REDIS_REST_URL=<from console.upstash.com>
+UPSTASH_REDIS_REST_TOKEN=<from console.upstash.com>
 ```
 
 ### Key deployment notes
@@ -112,6 +114,8 @@ CRON_SECRET=<generated>
 - HOSTNAME=0.0.0.0 required so Next.js binds to all interfaces inside the container
 - PORT=3000 must match the public domain target port
 - Migrations run automatically at startup via `prisma migrate deploy`
+- Chase engine runs inside the main app via instrumentation hook (no separate cron service needed)
+- Redis env vars are optional — without them, rate limiter and API key cache fall back to in-memory
 
 ## Completed Phases
 
@@ -229,6 +233,71 @@ approvesg-skill/
 - Skill references written as standalone docs that Claude can read selectively — no need to load the full API surface for simple tasks
 - Example workflows cover 6 common patterns (simple manager, two-level, three-level, technical+admin, compliance, content publishing)
 - Webhook verification examples in Node.js, Python, and Go for broad host product coverage
+
+## Scale Optimizations
+
+The codebase has been optimized for 100K+ concurrent transactions across two passes.
+
+### Transaction Safety
+
+All approval mutations (`approveSubmission`, `rejectSubmission`, `sendBackSubmission` in `src/lib/routing.ts`) are wrapped in Prisma `$transaction` blocks with 10s timeouts. This prevents race conditions where two concurrent approvals on the same submission could create duplicate actions or corrupt state. Notifications and webhooks fire-and-forget *after* the transaction commits so they never block the approval response.
+
+### Database Indexes
+
+Composite indexes added to `prisma/schema.prisma` for the exact query patterns used at scale:
+
+| Table | Index | Query pattern |
+|-------|-------|---------------|
+| submissions | `(orgId, submittedAt)` | Paginated list sorted by date |
+| submissions | `(orgId, status, updatedAt)` | Analytics aging queries |
+| submissions | `(orgId, status, submittedAt)` | Status-filtered lists |
+| chase_reminders | `(resolvedAt, nextDueAt)` | Chase cycle: find due reminders |
+| approval_actions | `(submissionId, stepOrder)` | Bottleneck analytics |
+| approval_actions | `(actedAt)` | Audit trail date range queries |
+
+### Analytics — SQL Aggregation
+
+All analytics in `src/lib/analytics.ts` use raw PostgreSQL queries with `PERCENTILE_CONT`, CTEs, and `GROUP BY`. Zero rows loaded into JS memory — the database does all computation. This prevents OOM at scale where the old approach loaded entire result sets into Node.js.
+
+### Query Optimization
+
+- **Submission list endpoints** (`/api/submissions`, `/api/v1/submissions`) use `select()` instead of `include()` — drops the full `actions[]` array from list responses (~10x payload reduction)
+- **Embed inbox** (`/api/embed/inbox`) capped at 200 rows with `select()` — prevents unbounded memory on large orgs
+- **Dashboard stats** fetched in parallel via `Promise.all` (was 5 sequential API calls)
+- **Chase engine** (`src/lib/chase.ts`) processes reminders in parallel batches of 50
+
+### Chase Engine — Internal Scheduler
+
+The chase engine runs inside the main app process (no separate cron service). `src/instrumentation.ts` starts a 1-hour `setInterval` via `src/lib/chase-scheduler.ts` on server boot. First run after 30s startup delay. Auto-disabled in non-production unless `ENABLE_CHASE_SCHEDULER=1` is set. The `/api/internal/chase` endpoint remains available for manual triggers.
+
+### Redis Integration (Upstash)
+
+Optional Upstash Redis (free tier, HTTP-based) provides distributed caching. Configured via `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` env vars. Without them, everything falls back to in-memory.
+
+**Rate limiter** (`src/middleware.ts`):
+- Redis: atomic `INCR` + `EXPIRE` per IP key (`rl:<ip>`, 60s TTL). Shared across all instances.
+- Fallback: in-memory Map with 10K entry cap, 10s cleanup interval.
+
+**API key cache** (`src/lib/auth.ts`):
+- Redis: `SETEX` with 5-min TTL (`apikey:<hash>`). Instant `DEL` on revoke via `invalidateApiKeyCache()`.
+- Fallback: in-memory Map with 1000 entry cap, FIFO eviction.
+- Both Redis and in-memory are written simultaneously — in-memory serves same-instance fast path, Redis ensures cross-instance consistency.
+
+**Redis client** (`src/lib/redis.ts`):
+- Singleton `@upstash/redis` client, HTTP-based (Edge Runtime compatible).
+- Returns `null` if env vars not set — all consumers check `if (redis)` before use.
+
+**Cache-Control headers** on GET endpoints:
+- Workflow endpoints: `private, max-age=300` (5 min)
+- Analytics endpoints: `private, max-age=60` (1 min)
+- Submission/audit endpoints: no cache (real-time data)
+
+### Frontend Optimizations
+
+- `next.config.js`: `compress: true`, `poweredByHeader: false`, `productionBrowserSourceMaps: false`
+- Font preconnect hints for Google Fonts (eliminates DNS lookup delay)
+- Mobile-responsive sidebar: hidden on mobile with hamburger toggle (slide-out drawer)
+- Stat cards and approval cards optimized for small screens
 
 ## Local Development
 
