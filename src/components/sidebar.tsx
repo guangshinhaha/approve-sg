@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -11,6 +12,8 @@ import {
   Key,
   LogOut,
   CheckCircle,
+  Menu,
+  X,
 } from "lucide-react";
 import type { AuthUser } from "@/lib/auth";
 
@@ -29,6 +32,7 @@ const NAV_ITEMS = [
 
 export function AppSidebar({ user }: SidebarProps) {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
 
   const visibleItems = NAV_ITEMS.filter((item) =>
     item.roles.includes(user.role)
@@ -40,60 +44,100 @@ export function AppSidebar({ user }: SidebarProps) {
   };
 
   return (
-    <aside className="w-[260px] h-full bg-white border-r border-approve-border flex flex-col">
-      {/* Logo */}
-      <div className="px-5 py-4 border-b border-approve-border">
-        <Link href="/dashboard" className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-approve-primary rounded-[10px] flex items-center justify-center flex-shrink-0">
-            <CheckCircle className="w-5 h-5 text-white" strokeWidth={2.5} />
+    <>
+      {/* Mobile header bar */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-approve-border flex items-center justify-between px-4 h-14">
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-approve-primary rounded-[8px] flex items-center justify-center">
+            <CheckCircle className="w-4 h-4 text-white" strokeWidth={2.5} />
           </div>
-          <span className="text-lg font-bold">
+          <span className="text-base font-bold">
             Approve<span className="text-approve-primary">SG</span>
           </span>
         </Link>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {visibleItems.map((item) => {
-          const isActive = item.href === "/dashboard"
-            ? pathname === "/dashboard"
-            : pathname.startsWith(item.href);
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-btn text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-approve-primary-light text-approve-primary"
-                  : "text-approve-text-secondary hover:bg-approve-surface-alt hover:text-approve-text"
-              }`}
-            >
-              <item.icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* User info */}
-      <div className="px-3 py-4 border-t border-approve-border">
-        <div className="px-3 mb-3">
-          <p className="text-sm font-semibold text-approve-text truncate">{user.name}</p>
-          <p className="text-xs text-approve-text-secondary truncate">{user.email}</p>
-          <p className="text-xs text-approve-text-secondary mt-0.5">
-            {user.role.replace("_", " ")}
-          </p>
-        </div>
         <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2 rounded-btn text-sm text-approve-text-secondary hover:bg-approve-surface-alt hover:text-approve-text transition-colors w-full"
+          onClick={() => setOpen(!open)}
+          className="p-2 rounded-btn text-approve-text-secondary hover:bg-approve-surface-alt"
+          aria-label={open ? "Close menu" : "Open menu"}
         >
-          <LogOut className="w-[18px] h-[18px]" strokeWidth={1.5} />
-          Sign out
+          {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
-    </aside>
+
+      {/* Backdrop overlay on mobile */}
+      {open && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/30"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`
+          fixed md:relative z-50 md:z-auto
+          top-0 left-0 h-full
+          w-[260px] bg-white border-r border-approve-border flex flex-col
+          transition-transform duration-200 ease-in-out
+          ${open ? "translate-x-0" : "-translate-x-full"}
+          md:translate-x-0
+        `}
+      >
+        {/* Logo */}
+        <div className="px-5 py-4 border-b border-approve-border">
+          <Link href="/dashboard" className="flex items-center gap-3" onClick={() => setOpen(false)}>
+            <div className="w-9 h-9 bg-approve-primary rounded-[10px] flex items-center justify-center flex-shrink-0">
+              <CheckCircle className="w-5 h-5 text-white" strokeWidth={2.5} />
+            </div>
+            <span className="text-lg font-bold">
+              Approve<span className="text-approve-primary">SG</span>
+            </span>
+          </Link>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {visibleItems.map((item) => {
+            const isActive = item.href === "/dashboard"
+              ? pathname === "/dashboard"
+              : pathname.startsWith(item.href);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-btn text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-approve-primary-light text-approve-primary"
+                    : "text-approve-text-secondary hover:bg-approve-surface-alt hover:text-approve-text"
+                }`}
+              >
+                <item.icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* User info */}
+        <div className="px-3 py-4 border-t border-approve-border">
+          <div className="px-3 mb-3">
+            <p className="text-sm font-semibold text-approve-text truncate">{user.name}</p>
+            <p className="text-xs text-approve-text-secondary truncate">{user.email}</p>
+            <p className="text-xs text-approve-text-secondary mt-0.5">
+              {user.role.replace("_", " ")}
+            </p>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-3 py-2 rounded-btn text-sm text-approve-text-secondary hover:bg-approve-surface-alt hover:text-approve-text transition-colors w-full"
+          >
+            <LogOut className="w-[18px] h-[18px]" strokeWidth={1.5} />
+            Sign out
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }

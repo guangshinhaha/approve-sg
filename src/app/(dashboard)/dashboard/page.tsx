@@ -99,12 +99,12 @@ function StatCard({
   highlight?: "pending" | "approved" | "rejected";
 }) {
   return (
-    <div className="bg-white border border-approve-border rounded-card p-5">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="text-approve-text-secondary">{icon}</div>
-        <span className="text-xs font-semibold text-approve-text-secondary uppercase tracking-wide">{label}</span>
+    <div className="bg-white border border-approve-border rounded-card p-3 md:p-5">
+      <div className="flex items-center gap-2 md:gap-3 mb-1.5 md:mb-2">
+        <div className="text-approve-text-secondary flex-shrink-0">{icon}</div>
+        <span className="text-[11px] md:text-xs font-semibold text-approve-text-secondary uppercase tracking-wide truncate">{label}</span>
       </div>
-      <p className="text-2xl font-bold text-grey-700">{value}</p>
+      <p className="text-xl md:text-2xl font-bold text-grey-700">{value}</p>
     </div>
   );
 }

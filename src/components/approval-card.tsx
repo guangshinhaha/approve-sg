@@ -41,17 +41,14 @@ export function ApprovalCard({ submission }: ApprovalCardProps) {
         <StatusBadge status={submission.status as any} size="sm" />
       </div>
 
-      <div className="text-xs text-approve-text-secondary">
+      <div className="text-xs text-approve-text-secondary flex flex-wrap gap-x-1.5 gap-y-0.5">
         <span>Submitted by {submission.submittedBy}</span>
-        <span className="mx-1.5">·</span>
+        <span className="hidden sm:inline">·</span>
         <TimeDisplay date={submission.submittedAt} />
         {submission.totalSteps && (
           <>
-            <span className="mx-1.5">·</span>
+            <span className="hidden sm:inline">·</span>
             <span>Step {submission.currentStep} of {submission.totalSteps}</span>
-            {submission.currentStepLabel && (
-              <span> · {submission.currentStepLabel}</span>
-            )}
           </>
         )}
       </div>
