@@ -84,7 +84,7 @@ export async function middleware(req: NextRequest) {
   // --- API routes: rate limiting + security headers ---
   if (pathname.startsWith("/api")) {
     // Skip rate limiting for health, auth, and embed API routes
-    if (pathname === "/api/health" || pathname.startsWith("/api/auth")) {
+    if (pathname === "/api/health" || pathname === "/api/status" || pathname.startsWith("/api/auth")) {
       return addSecurityHeaders(NextResponse.next());
     }
 
@@ -120,7 +120,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // --- Dashboard routes: require auth cookie ---
-  if (pathname === "/" || pathname === "/login" || pathname.startsWith("/_next") || pathname.startsWith("/favicon")) {
+  if (pathname === "/" || pathname === "/login" || pathname === "/status" || pathname.startsWith("/_next") || pathname.startsWith("/favicon")) {
     return NextResponse.next();
   }
 
