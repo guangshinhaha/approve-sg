@@ -153,27 +153,36 @@ CRON_SECRET=<generated>
 - Reminders self-resolve when submission state changes
 - SES not configured on Railway — emails log but don't send yet
 
-## Planned Phases
-
 ### Phase 3 — Embeddable UI surfaces
 
 **Goal:** Provide iframe-ready pages that host products drop into their own UIs, authenticated via short-lived embed tokens.
 
-**What to build:**
-
-1. **Embed token endpoint** — `POST /api/v1/embed-tokens`. API-key-authed. Host product passes user context (email, name, role), receives a short-lived JWT scoped to that org + user. Token passed to iframe via `?token=...` query param.
-
-2. **`/embed/workflow-builder`** — Visual drag-and-drop chain editor. Admins in the host product define who approves what: add/remove/reorder steps, pick roles from OrgMember list, set labels. Saves via the v1 workflows API. This is requirement #1: "easily define who are the approval chains."
-
-3. **`/embed/submission/[id]`** (upgrade existing) — Timeline view showing each step, who's assigned, current highlight, time-in-step, last chase sent, `stuckWith` info. This is the visual form of requirement #2: "where exactly is the approval flow stuck."
-
-4. **`/embed/inbox`** — "What's waiting on me." Filtered by the embed token's user email. Shows pending submissions at steps where the user's role matches the approver_role.
-
-5. **`/embed/analytics`** (Phase 4 visual) — Aging dashboard showing avg time per step, bottleneck steps, chase effectiveness. Deferred until Phase 4 backend is ready.
+**What was built:**
+- Embed token system: `signEmbedToken()` / `verifyEmbedToken()` in `src/lib/embed-token.ts` — HS256 JWTs with 1h expiry, `approvesg-embed` issuer
+- `POST /api/v1/embed-tokens` — API-key-authed endpoint (scope: `embed:write`). Host product passes `{ email, name, role }`, receives a short-lived JWT
+- Embed auth helpers in `src/lib/embed-auth.ts` — `getEmbedUser()` verifies `?token=` query param, `parseTheme()` parses `?theme=primaryColor,logoUrl`
+- Embed API auth in `src/lib/embed-api-auth.ts` — `verifyEmbedAuth()` for `/api/embed/*` routes (reads embed JWT from Authorization header)
+- `EmbedShell` component — shared wrapper with theme CSS variable injection, optional logo, "Powered by ApproveSG" footer
+- `/embed/workflow-builder` — Interactive drag-and-drop approval chain editor. Add/remove/reorder steps, pick approver roles from OrgMember list, set labels and required flag. Creates new workflows or edits existing via `?workflowId=`
+- `/embed/submissions/[id]` (upgraded) — Full timeline view with step-by-step history, stuckWith banner, time-in-step, chase reminder counts, action comments, and relative timestamps
+- `/embed/inbox` — "What's waiting on me" view. Resolves embed user's roles via OrgMember, filters pending submissions where current step's approver_role matches. Shows time-stuck with colour coding (green < 24h, amber < 72h, red > 72h)
+- Embed API routes: `GET/POST /api/embed/workflows`, `GET/PUT /api/embed/workflows/[id]`, `GET /api/embed/members` (roles list for builder), `GET /api/embed/inbox`
+- `PUT /api/v1/workflows/[id]` — Added missing update endpoint for external API
+- Middleware updated: `/api/embed/*` routes get iframe-friendly headers (`X-Frame-Options: ALLOWALL`, `frame-ancestors *`)
+- `/embed/analytics` deferred until Phase 4 backend is ready
 
 **Embed auth flow:** Host product backend → `POST /api/v1/embed-tokens` (with API key + user context) → receives short-lived JWT → passes to iframe as `?token=...`. Keeps the host product's user model authoritative.
 
-**Styling:** `?theme=primaryColor,logoUrl` query param for brand matching.
+**Styling:** `?theme=primaryColor,logoUrl` query param overrides `--approve-primary` CSS variable and displays optional logo.
+
+**Key decisions:**
+- Separate embed JWT issuer (`approvesg-embed`) from session JWT (`approvesg-demo`) for clean separation
+- Embed pages work without token (unauthenticated submission view) but enforce org scope when token is present
+- Dedicated `/api/embed/*` routes use embed token auth (not API keys) — keeps host product API keys server-side only
+- Drag-and-drop reordering uses native HTML5 drag events (no extra dependencies)
+- Inbox resolves user roles from OrgMember table, falling back to embed token role if no member record exists
+
+## Planned Phases
 
 ### Phase 4 — Approval aging analytics
 

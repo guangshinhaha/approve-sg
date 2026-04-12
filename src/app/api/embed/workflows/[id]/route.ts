@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { verifyApiKey, requireScope } from "@/lib/auth";
+import { verifyEmbedAuth } from "@/lib/embed-api-auth";
 import { prisma } from "@/lib/db";
 import { handleApiError, NotFoundError, AppError } from "@/lib/errors";
 
@@ -18,22 +18,20 @@ const UpdateWorkflowSchema = z.object({
 });
 
 /**
- * GET /api/v1/workflows/:id — Fetch a single workflow.
- * Requires scope: workflows:read
+ * GET /api/embed/workflows/:id — Fetch a single workflow.
  */
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const ctx = await verifyApiKey(req);
-    requireScope(ctx, "workflows:read", "workflows:write");
+    const user = await verifyEmbedAuth(req);
 
     const workflow = await prisma.workflow.findUnique({
       where: { id: params.id },
     });
     if (!workflow) throw new NotFoundError("Workflow");
-    if (workflow.orgId !== ctx.orgId) {
+    if (workflow.orgId !== user.orgId) {
       throw new AppError("Workflow does not belong to this organization", 403);
     }
 
@@ -44,22 +42,20 @@ export async function GET(
 }
 
 /**
- * PUT /api/v1/workflows/:id — Update a workflow definition.
- * Requires scope: workflows:write
+ * PUT /api/embed/workflows/:id — Update workflow from the embed builder.
  */
 export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const ctx = await verifyApiKey(req);
-    requireScope(ctx, "workflows:write");
+    const user = await verifyEmbedAuth(req);
 
     const workflow = await prisma.workflow.findUnique({
       where: { id: params.id },
     });
     if (!workflow) throw new NotFoundError("Workflow");
-    if (workflow.orgId !== ctx.orgId) {
+    if (workflow.orgId !== user.orgId) {
       throw new AppError("Workflow does not belong to this organization", 403);
     }
 
