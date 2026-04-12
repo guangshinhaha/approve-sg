@@ -74,12 +74,33 @@ export function enforceOrgAccess(user: AuthUser, orgId: string): void {
   }
 }
 
-// ── API key cache (avoids DB lookup on every request) ──────────────
-const API_KEY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// ── API key cache (Redis when available, in-memory fallback) ───────
+import { redis } from "./redis";
+
+const API_KEY_CACHE_TTL_S = 300; // 5 minutes
 const API_KEY_CACHE_MAX = 1000;
 const apiKeyCache = new Map<string, { ctx: ApiKeyContext; revokedAt: Date | null; expiresAt: number }>();
 
-function getCachedApiKey(hash: string) {
+interface CachedKeyData { ctx: ApiKeyContext; revokedAt: string | null }
+
+async function getCachedApiKey(hash: string): Promise<{ ctx: ApiKeyContext; revokedAt: Date | null } | null> {
+  // Try Redis first
+  if (redis) {
+    try {
+      const cached = await redis.get<CachedKeyData>(`apikey:${hash}`);
+      if (cached) {
+        return {
+          ctx: cached.ctx,
+          revokedAt: cached.revokedAt ? new Date(cached.revokedAt) : null,
+        };
+      }
+      return null;
+    } catch {
+      // Redis down — fall through to in-memory
+    }
+  }
+
+  // In-memory fallback
   const entry = apiKeyCache.get(hash);
   if (!entry || Date.now() > entry.expiresAt) {
     apiKeyCache.delete(hash);
@@ -88,17 +109,39 @@ function getCachedApiKey(hash: string) {
   return entry;
 }
 
-function cacheApiKey(hash: string, key: { id: string; orgId: string; scopes: string[]; revokedAt: Date | null }) {
-  // Evict oldest entries if cache is full
+async function cacheApiKey(hash: string, key: { id: string; orgId: string; scopes: string[]; revokedAt: Date | null }) {
+  const ctx: ApiKeyContext = { type: "api_key", apiKeyId: key.id, orgId: key.orgId, scopes: key.scopes };
+
+  // Write to Redis
+  if (redis) {
+    try {
+      await redis.setex(`apikey:${hash}`, API_KEY_CACHE_TTL_S, {
+        ctx,
+        revokedAt: key.revokedAt?.toISOString() ?? null,
+      } satisfies CachedKeyData);
+    } catch {
+      // Redis down — fall through to in-memory
+    }
+  }
+
+  // Also write to in-memory (faster for same-instance hits)
   if (apiKeyCache.size >= API_KEY_CACHE_MAX) {
     const firstKey = apiKeyCache.keys().next().value;
     if (firstKey) apiKeyCache.delete(firstKey);
   }
   apiKeyCache.set(hash, {
-    ctx: { type: "api_key", apiKeyId: key.id, orgId: key.orgId, scopes: key.scopes },
+    ctx,
     revokedAt: key.revokedAt,
-    expiresAt: Date.now() + API_KEY_CACHE_TTL,
+    expiresAt: Date.now() + API_KEY_CACHE_TTL_S * 1000,
   });
+}
+
+/** Invalidate a cached API key immediately (call on revoke). */
+export async function invalidateApiKeyCache(hash: string) {
+  apiKeyCache.delete(hash);
+  if (redis) {
+    try { await redis.del(`apikey:${hash}`); } catch { /* ignore */ }
+  }
 }
 
 /**
@@ -120,7 +163,7 @@ export async function verifyApiKey(req: NextRequest): Promise<ApiKeyContext> {
   const hashed = hashApiKey(raw);
 
   // Check cache first
-  const cached = getCachedApiKey(hashed);
+  const cached = await getCachedApiKey(hashed);
   if (cached) {
     if (cached.revokedAt) throw new AuthError("API key revoked");
     return cached.ctx;
@@ -131,7 +174,7 @@ export async function verifyApiKey(req: NextRequest): Promise<ApiKeyContext> {
   if (!key) throw new AuthError("Invalid API key");
   if (key.revokedAt) throw new AuthError("API key revoked");
 
-  cacheApiKey(hashed, key);
+  await cacheApiKey(hashed, key);
 
   // Fire-and-forget lastUsedAt update
   void prisma.apiKey
