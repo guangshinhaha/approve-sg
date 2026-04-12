@@ -86,14 +86,13 @@ Core state machine for submissions. Functions accept `ActionActor { id, role }` 
 | Service | Type | Purpose |
 |---------|------|---------|
 | approve-sg | Web | Main Next.js app. Start: `npx prisma migrate deploy && npm start` |
-| Postgres | Database | PostgreSQL 16. Internal URL referenced as DATABASE_URL + DIRECT_URL |
-| chase-cron | Cron | Hits chase endpoint hourly. Image: built from same repo. Watch paths: `chase-cron.trigger` (never rebuilds on normal pushes). Cron: `0 * * * *`. Start: `curl -fsS -X POST -H "x-cron-secret: $CRON_SECRET" https://approve-sg.up.railway.app/api/internal/chase` |
+| Postgres | Database | PostgreSQL 16. Internal URL referenced as DATABASE_URL |
+| chase-cron | Cron | Hits chase endpoint hourly. Uses `Dockerfile.chase-cron` (Alpine + curl, no Node/Prisma). Watch paths: `chase-cron.trigger`, `chase-cron/`, `Dockerfile.chase-cron`. Cron: `0 * * * *`. Env: `CRON_SECRET`, `APP_URL`. Retries 3x with exponential backoff. |
 
 ### Environment Variables (approve-sg service)
 
 ```
 DATABASE_URL=${{Postgres.DATABASE_URL}}
-DIRECT_URL=${{Postgres.DATABASE_URL}}
 NEXT_PUBLIC_APP_URL=https://approve-sg.up.railway.app
 JWT_SECRET=<generated>
 CORS_ORIGIN=https://approve-sg.up.railway.app

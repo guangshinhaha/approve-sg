@@ -1,0 +1,12 @@
+FROM alpine:3.19
+
+RUN apk add --no-cache curl
+
+# No build step, no Node.js, no Prisma — just curl.
+# Railway cron triggers this container on schedule.
+# The actual chase logic runs inside the main app.
+
+COPY chase-cron/run.sh /run.sh
+RUN chmod +x /run.sh
+
+CMD ["/run.sh"]
