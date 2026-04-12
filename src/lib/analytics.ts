@@ -1,27 +1,5 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "./db";
-
-interface WorkflowStep {
-  order: number;
-  label: string;
-  approver_role: string;
-  required: boolean;
-}
-
-// ── Percentile helper ──────────────────────────────────────────────
-
-function percentile(sorted: number[], p: number): number {
-  if (sorted.length === 0) return 0;
-  const idx = (p / 100) * (sorted.length - 1);
-  const lo = Math.floor(idx);
-  const hi = Math.ceil(idx);
-  if (lo === hi) return sorted[lo];
-  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
-}
-
-function mean(values: number[]): number {
-  if (values.length === 0) return 0;
-  return values.reduce((a, b) => a + b, 0) / values.length;
-}
 
 // ── Aging analytics ────────────────────────────────────────────────
 
@@ -38,66 +16,42 @@ export interface AgingResult {
 }
 
 /**
- * Compute avg / p50 / p95 time-to-approve per workflow.
- * Only considers submissions that reached a terminal state (approved/rejected).
+ * Compute avg / p50 / p95 time-to-approve per workflow using PostgreSQL
+ * aggregate functions. No data loaded into JS memory.
  */
 export async function computeAging(
   orgId: string,
   opts?: { workflowId?: string; since?: Date }
 ): Promise<AgingResult[]> {
-  const where: Record<string, unknown> = {
-    orgId,
-    status: { in: ["approved", "rejected"] },
-  };
-  if (opts?.workflowId) where.workflowId = opts.workflowId;
-  if (opts?.since) where.updatedAt = { gte: opts.since };
+  const workflowFilter = opts?.workflowId
+    ? Prisma.sql`AND s.workflow_id = ${opts.workflowId}::uuid`
+    : Prisma.empty;
+  const sinceFilter = opts?.since
+    ? Prisma.sql`AND s.updated_at >= ${opts.since}`
+    : Prisma.empty;
 
-  const submissions = await prisma.submission.findMany({
-    where,
-    include: { workflow: true },
-    orderBy: { updatedAt: "desc" },
-  });
+  const rows = await prisma.$queryRaw<AgingResult[]>`
+    SELECT
+      w.id AS "workflowId",
+      w.name AS "workflowName",
+      w.workflow_type AS "workflowType",
+      COUNT(*)::int AS "sampleSize",
+      ROUND(AVG(EXTRACT(EPOCH FROM (s.updated_at - s.submitted_at)) / 3600)::numeric, 2)::float AS "avgHours",
+      ROUND((PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (s.updated_at - s.submitted_at)) / 3600))::numeric, 2)::float AS "p50Hours",
+      ROUND((PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (s.updated_at - s.submitted_at)) / 3600))::numeric, 2)::float AS "p95Hours",
+      ROUND(MIN(EXTRACT(EPOCH FROM (s.updated_at - s.submitted_at)) / 3600)::numeric, 2)::float AS "minHours",
+      ROUND(MAX(EXTRACT(EPOCH FROM (s.updated_at - s.submitted_at)) / 3600)::numeric, 2)::float AS "maxHours"
+    FROM submissions s
+    JOIN workflows w ON s.workflow_id = w.id
+    WHERE s.org_id = ${orgId}::uuid
+      AND s.status IN ('approved', 'rejected')
+      ${workflowFilter}
+      ${sinceFilter}
+    GROUP BY w.id, w.name, w.workflow_type
+    ORDER BY "avgHours" DESC
+  `;
 
-  // Group by workflow
-  const byWorkflow = new Map<
-    string,
-    { workflow: (typeof submissions)[0]["workflow"]; durations: number[] }
-  >();
-
-  for (const sub of submissions) {
-    const durationMs =
-      new Date(sub.updatedAt).getTime() -
-      new Date(sub.submittedAt).getTime();
-    const durationHours = durationMs / (1000 * 60 * 60);
-
-    const existing = byWorkflow.get(sub.workflowId);
-    if (existing) {
-      existing.durations.push(durationHours);
-    } else {
-      byWorkflow.set(sub.workflowId, {
-        workflow: sub.workflow,
-        durations: [durationHours],
-      });
-    }
-  }
-
-  const results: AgingResult[] = [];
-  for (const [workflowId, { workflow, durations }] of byWorkflow) {
-    const sorted = [...durations].sort((a, b) => a - b);
-    results.push({
-      workflowId,
-      workflowName: workflow.name,
-      workflowType: workflow.workflowType,
-      sampleSize: sorted.length,
-      avgHours: Math.round(mean(sorted) * 100) / 100,
-      p50Hours: Math.round(percentile(sorted, 50) * 100) / 100,
-      p95Hours: Math.round(percentile(sorted, 95) * 100) / 100,
-      minHours: Math.round(sorted[0] * 100) / 100,
-      maxHours: Math.round(sorted[sorted.length - 1] * 100) / 100,
-    });
-  }
-
-  return results.sort((a, b) => b.avgHours - a.avgHours);
+  return rows;
 }
 
 // ── Bottleneck analytics ───────────────────────────────────────────
@@ -115,105 +69,65 @@ export interface BottleneckStep {
 }
 
 /**
- * Compute step-level time-in-state, ranked by slowest.
- *
- * For each step, we measure the time between when the step became active
- * (the previous step's approval, or submittedAt for step 1) and when
- * the step was acted upon (its own action timestamp).
+ * Compute step-level time-in-state using PostgreSQL CTEs.
+ * Derives step start from previous step's approval (or submittedAt for step 1).
  */
 export async function computeBottlenecks(
   orgId: string,
   opts?: { workflowId?: string; since?: Date }
 ): Promise<BottleneckStep[]> {
-  const where: Record<string, unknown> = {
-    orgId,
-    status: { in: ["approved", "rejected"] },
-  };
-  if (opts?.workflowId) where.workflowId = opts.workflowId;
-  if (opts?.since) where.updatedAt = { gte: opts.since };
+  const workflowFilter = opts?.workflowId
+    ? Prisma.sql`AND s.workflow_id = ${opts.workflowId}::uuid`
+    : Prisma.empty;
+  const sinceFilter = opts?.since
+    ? Prisma.sql`AND s.updated_at >= ${opts.since}`
+    : Prisma.empty;
 
-  const submissions = await prisma.submission.findMany({
-    where,
-    include: {
-      workflow: true,
-      actions: { orderBy: { actedAt: "asc" } },
-    },
-  });
+  const rows = await prisma.$queryRaw<BottleneckStep[]>`
+    WITH step_durations AS (
+      SELECT
+        s.workflow_id,
+        w.name AS workflow_name,
+        aa.step_order,
+        w.steps -> (aa.step_order - 1) ->> 'label' AS step_label,
+        w.steps -> (aa.step_order - 1) ->> 'approver_role' AS approver_role,
+        EXTRACT(EPOCH FROM (
+          aa.acted_at - COALESCE(
+            (SELECT prev.acted_at
+             FROM approval_actions prev
+             WHERE prev.submission_id = s.id
+               AND prev.step_order = aa.step_order - 1
+               AND prev.action = 'approved'
+             ORDER BY prev.acted_at DESC
+             LIMIT 1),
+            s.submitted_at
+          )
+        )) / 3600 AS duration_hours
+      FROM submissions s
+      JOIN workflows w ON s.workflow_id = w.id
+      JOIN approval_actions aa ON s.id = aa.submission_id
+      WHERE s.org_id = ${orgId}::uuid
+        AND s.status IN ('approved', 'rejected')
+        ${workflowFilter}
+        ${sinceFilter}
+    )
+    SELECT
+      workflow_id AS "workflowId",
+      workflow_name AS "workflowName",
+      step_order::int AS "stepOrder",
+      step_label AS "stepLabel",
+      approver_role AS "approverRole",
+      COUNT(*)::int AS "sampleSize",
+      ROUND(AVG(duration_hours)::numeric, 2)::float AS "avgHours",
+      ROUND((PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY duration_hours))::numeric, 2)::float AS "p50Hours",
+      ROUND((PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_hours))::numeric, 2)::float AS "p95Hours"
+    FROM step_durations
+    WHERE duration_hours >= 0
+    GROUP BY workflow_id, workflow_name, step_order, step_label, approver_role
+    ORDER BY "avgHours" DESC
+  `;
 
-  // Accumulate durations per (workflowId, stepOrder)
-  const stepDurations = new Map<
-    string,
-    {
-      workflowId: string;
-      workflowName: string;
-      stepOrder: number;
-      stepLabel: string;
-      approverRole: string;
-      durations: number[];
-    }
-  >();
-
-  for (const sub of submissions) {
-    const steps = sub.workflow.steps as unknown as WorkflowStep[];
-    const actions = sub.actions;
-
-    for (const action of actions) {
-      const stepDef = steps.find((s) => s.order === action.stepOrder);
-      if (!stepDef) continue;
-
-      // Step became active either at submission time (step 1) or when
-      // the previous step was approved.
-      let stepStartTime: Date;
-      if (action.stepOrder === 1) {
-        stepStartTime = sub.submittedAt;
-      } else {
-        const prevAction = actions.find(
-          (a) => a.stepOrder === action.stepOrder - 1 && a.action === "approved"
-        );
-        if (!prevAction) continue; // skip if we can't determine start time
-        stepStartTime = prevAction.actedAt;
-      }
-
-      const durationMs =
-        new Date(action.actedAt).getTime() - stepStartTime.getTime();
-      const durationHours = durationMs / (1000 * 60 * 60);
-      if (durationHours < 0) continue; // data integrity guard
-
-      const key = `${sub.workflowId}:${action.stepOrder}`;
-      const existing = stepDurations.get(key);
-      if (existing) {
-        existing.durations.push(durationHours);
-      } else {
-        stepDurations.set(key, {
-          workflowId: sub.workflowId,
-          workflowName: sub.workflow.name,
-          stepOrder: action.stepOrder,
-          stepLabel: stepDef.label,
-          approverRole: stepDef.approver_role,
-          durations: [durationHours],
-        });
-      }
-    }
-  }
-
-  const results: BottleneckStep[] = [];
-  for (const entry of stepDurations.values()) {
-    const sorted = [...entry.durations].sort((a, b) => a - b);
-    results.push({
-      workflowId: entry.workflowId,
-      workflowName: entry.workflowName,
-      stepOrder: entry.stepOrder,
-      stepLabel: entry.stepLabel,
-      approverRole: entry.approverRole,
-      sampleSize: sorted.length,
-      avgHours: Math.round(mean(sorted) * 100) / 100,
-      p50Hours: Math.round(percentile(sorted, 50) * 100) / 100,
-      p95Hours: Math.round(percentile(sorted, 95) * 100) / 100,
-    });
-  }
-
-  // Rank by slowest average
-  return results.sort((a, b) => b.avgHours - a.avgHours);
+  return rows;
 }
 
 // ── Chase impact analytics ─────────────────────────────────────────
@@ -227,76 +141,35 @@ export interface ChaseImpactBucket {
 }
 
 /**
- * Measure how effective chase reminders are at driving action.
- *
- * Groups resolved reminders by sendCount and computes:
- * - How many steps received N chases
- * - What % of those steps eventually got resolved
- * - Average time from first chase to resolution
+ * Measure chase reminder effectiveness using PostgreSQL aggregation.
  */
 export async function computeChaseImpact(
   orgId: string,
   opts?: { since?: Date }
 ): Promise<ChaseImpactBucket[]> {
-  const reminders = await prisma.chaseReminder.findMany({
-    where: {
-      submission: { orgId },
-      ...(opts?.since ? { createdAt: { gte: opts.since } } : {}),
-    },
-    include: {
-      submission: { select: { orgId: true } },
-    },
-  });
+  const sinceFilter = opts?.since
+    ? Prisma.sql`AND cr.created_at >= ${opts.since}`
+    : Prisma.empty;
 
-  // Filter to this org's reminders (belt-and-suspenders with the where clause)
-  const orgReminders = reminders.filter((r) => r.submission.orgId === orgId);
+  const rows = await prisma.$queryRaw<ChaseImpactBucket[]>`
+    SELECT
+      cr.send_count::int AS "chasesReceived",
+      COUNT(*)::int AS "totalSteps",
+      COUNT(cr.resolved_at)::int AS "resolvedSteps",
+      ROUND((COUNT(cr.resolved_at)::numeric / NULLIF(COUNT(*), 0) * 100), 2)::float AS "resolutionRate",
+      ROUND(COALESCE(AVG(
+        CASE WHEN cr.resolved_at IS NOT NULL AND cr.last_sent_at IS NOT NULL
+        THEN EXTRACT(EPOCH FROM (cr.resolved_at - cr.last_sent_at)) / 3600
+        END
+      ), 0)::numeric, 2)::float AS "avgHoursToResolve"
+    FROM chase_reminders cr
+    JOIN submissions s ON cr.submission_id = s.id
+    WHERE s.org_id = ${orgId}::uuid
+      AND cr.send_count > 0
+      ${sinceFilter}
+    GROUP BY cr.send_count
+    ORDER BY "chasesReceived" ASC
+  `;
 
-  // Group by sendCount
-  const buckets = new Map<
-    number,
-    { total: number; resolved: number; resolveTimes: number[] }
-  >();
-
-  for (const r of orgReminders) {
-    if (r.sendCount === 0) continue; // never actually chased
-
-    const bucket = buckets.get(r.sendCount) || {
-      total: 0,
-      resolved: 0,
-      resolveTimes: [],
-    };
-    bucket.total++;
-
-    if (r.resolvedAt) {
-      bucket.resolved++;
-      if (r.lastSentAt) {
-        const resolveTimeHours =
-          (new Date(r.resolvedAt).getTime() -
-            new Date(r.lastSentAt).getTime()) /
-          (1000 * 60 * 60);
-        if (resolveTimeHours >= 0) {
-          bucket.resolveTimes.push(resolveTimeHours);
-        }
-      }
-    }
-
-    buckets.set(r.sendCount, bucket);
-  }
-
-  const results: ChaseImpactBucket[] = [];
-  for (const [count, bucket] of buckets) {
-    results.push({
-      chasesReceived: count,
-      totalSteps: bucket.total,
-      resolvedSteps: bucket.resolved,
-      resolutionRate:
-        bucket.total > 0
-          ? Math.round((bucket.resolved / bucket.total) * 10000) / 100
-          : 0,
-      avgHoursToResolve:
-        Math.round(mean(bucket.resolveTimes) * 100) / 100,
-    });
-  }
-
-  return results.sort((a, b) => a.chasesReceived - b.chasesReceived);
+  return rows;
 }

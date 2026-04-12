@@ -64,7 +64,20 @@ export async function GET(req: NextRequest) {
     const [submissions, total] = await Promise.all([
       prisma.submission.findMany({
         where,
-        include: { workflow: true, actions: { orderBy: { actedAt: "asc" } } },
+        select: {
+          id: true,
+          orgId: true,
+          workflowId: true,
+          externalRef: true,
+          externalType: true,
+          status: true,
+          currentStep: true,
+          stuckSince: true,
+          submittedBy: true,
+          submittedAt: true,
+          updatedAt: true,
+          workflow: { select: { id: true, name: true, workflowType: true } },
+        },
         orderBy: { submittedAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,
