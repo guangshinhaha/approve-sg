@@ -50,9 +50,17 @@ export function middleware(req: NextRequest) {
 
   // --- API routes: rate limiting + security headers ---
   if (pathname.startsWith("/api")) {
-    // Skip rate limiting for health and auth routes
+    // Skip rate limiting for health, auth, and embed API routes
     if (pathname === "/api/health" || pathname.startsWith("/api/auth")) {
       return addSecurityHeaders(NextResponse.next());
+    }
+
+    // Embed API routes: allow CORS for iframe-based fetch calls
+    if (pathname.startsWith("/api/embed")) {
+      const response = NextResponse.next();
+      response.headers.set("X-Frame-Options", "ALLOWALL");
+      response.headers.set("Content-Security-Policy", "frame-ancestors *");
+      return addSecurityHeaders(response);
     }
 
     // Rate limiting
