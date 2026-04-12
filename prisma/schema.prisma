@@ -121,6 +121,9 @@ model Submission {
   @@index([status])
   @@index([orgId, status])
   @@index([orgId, workflowId, status])
+  @@index([orgId, submittedAt])
+  @@index([orgId, status, updatedAt])
+  @@index([orgId, status, submittedAt])
   @@map("submissions")
 }
 
@@ -139,6 +142,7 @@ model ChaseReminder {
   @@unique([submissionId, stepOrder])
   @@index([nextDueAt])
   @@index([resolvedAt])
+  @@index([resolvedAt, nextDueAt])
   @@map("chase_reminders")
 }
 
@@ -155,6 +159,8 @@ model ApprovalAction {
   submission Submission @relation(fields: [submissionId], references: [id])
 
   @@index([submissionId])
+  @@index([submissionId, stepOrder])
+  @@index([actedAt])
   @@map("approval_actions")
 }
 
