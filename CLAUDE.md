@@ -169,7 +169,7 @@ CRON_SECRET=<generated>
 - Embed API routes: `GET/POST /api/embed/workflows`, `GET/PUT /api/embed/workflows/[id]`, `GET /api/embed/members` (roles list for builder), `GET /api/embed/inbox`
 - `PUT /api/v1/workflows/[id]` — Added missing update endpoint for external API
 - Middleware updated: `/api/embed/*` routes get iframe-friendly headers (`X-Frame-Options: ALLOWALL`, `frame-ancestors *`)
-- `/embed/analytics` deferred until Phase 4 backend is ready
+- `/embed/analytics` — implemented in Phase 4 with full visual dashboard
 
 **Embed auth flow:** Host product backend → `POST /api/v1/embed-tokens` (with API key + user context) → receives short-lived JWT → passes to iframe as `?token=...`. Keeps the host product's user model authoritative.
 
@@ -188,18 +188,21 @@ CRON_SECRET=<generated>
 
 **Goal:** Let users track average approval aging to optimise processes.
 
-**What to build:**
+**What was built:**
+- Analytics computation library in `src/lib/analytics.ts` — pure functions computing stats from existing ApprovalAction + Submission + ChaseReminder data. No new tables needed.
+- `GET /api/v1/analytics/aging` — avg/p50/p95/min/max time-to-approve per workflow. Scope: `analytics:read`
+- `GET /api/v1/analytics/bottlenecks` — step-level time-in-state ranked by slowest. Computes duration from previous step's approval (or submittedAt for step 1) to current step's action
+- `GET /api/v1/analytics/chase-impact` — groups resolved chase reminders by sendCount, shows resolution rate and avg time to resolve after last chase
+- `GET /api/embed/analytics` — combined endpoint returning all three datasets in one response (embed-token-authed) to avoid multiple round-trips from the dashboard
+- `/embed/analytics` — visual dashboard with time range selector (7d/30d/90d/all), horizontal bar charts for aging per workflow (avg/p50/p95), ranked bottleneck list with severity colouring (red > 72h, amber > 24h), and chase effectiveness table
+- All endpoints support `?workflowId=` and `?since=` query params for filtering
 
-1. **Analytics endpoints:**
-   - `GET /api/v1/analytics/aging` — avg/p50/p95 time-to-approve per workflow
-   - `GET /api/v1/analytics/bottlenecks` — step-level time-in-state, ranked
-   - `GET /api/v1/analytics/chase-impact` — response rate after N chases
-
-2. **Computed from existing data:** ApprovalAction timestamps + Submission.submittedAt/stuckSince. No new tables needed initially.
-
-3. **Materialised stats table** (`WorkflowStats`) — only needed if query cost becomes an issue under load. Skip until it does.
-
-4. **`/embed/analytics`** — visual dashboard (part of Phase 3's embed surfaces). Bar/line charts showing aging trends, bottleneck steps highlighted in red.
+**Key decisions:**
+- All analytics computed on-the-fly from existing data — no materialised stats table. Can add WorkflowStats later if query cost becomes an issue under load
+- Bottleneck time-in-state uses ApprovalAction sequence to derive step start/end times rather than tracking explicit per-step timestamps
+- Chase impact groups by sendCount (how many reminders a step received) to show diminishing returns of repeated chasing
+- Dashboard uses pure CSS bar charts — no chart library dependency to keep bundle size small
+- Embed analytics endpoint fetches aging + bottlenecks + chase-impact in parallel via Promise.all
 
 ### Phase 5 — Claude skill package
 
