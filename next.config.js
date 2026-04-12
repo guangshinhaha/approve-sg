@@ -8,6 +8,7 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "1mb",
     },
+    instrumentationHook: true,
   },
   async headers() {
     return [
