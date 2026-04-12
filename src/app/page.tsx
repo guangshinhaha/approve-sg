@@ -7,7 +7,7 @@ import {
   Users,
   BarChart3,
   ScrollText,
-  Megaphone,
+  ShoppingCart,
   ClipboardList,
   GraduationCap,
   DollarSign,
@@ -15,8 +15,12 @@ import {
   Plane,
   ArrowRight,
   ArrowDown,
-  Check,
-  X as XIcon,
+  Key,
+  Code2,
+  Layout,
+  Bell,
+  Webhook,
+  Cpu,
 } from "lucide-react";
 import { LandingNav } from "@/components/landing/nav";
 import { HeroAnimation } from "@/components/landing/hero-animation";
@@ -30,73 +34,103 @@ const FEATURES: { icon: LucideIcon; title: string; desc: string }[] = [
   {
     icon: Plug,
     title: "API-First, Headless",
-    desc: "REST API that any product calls. No UI opinions. Your product owns the experience — ApproveSG handles the state machine underneath.",
+    desc: "Full REST API with OpenAPI spec. Your product owns the experience — ApproveSG handles the state machine, routing, and notifications underneath.",
   },
   {
     icon: Building2,
     title: "Multi-Tenant by Design",
-    desc: "Every school, division, or agency is fully isolated. Row-Level Security enforced at database layer. School A never sees School B.",
+    desc: "Every organization is fully isolated via row-level tenancy. Org A never sees Org B. Onboard new tenants in minutes with API keys.",
+  },
+  {
+    icon: Key,
+    title: "Scoped API Keys",
+    desc: "Machine-to-machine auth with granular scopes. Mint keys for submissions:write, workflows:read, analytics:read — whatever each integration needs.",
   },
   {
     icon: Settings,
     title: "Configurable Approval Chains",
-    desc: "Each tenant defines their own steps. Add, remove, reorder. Assign roles per step. Templates for common patterns — customise from there.",
+    desc: "Define multi-step chains with role-based routing. Add, remove, reorder steps. 6 workflow templates for common patterns — customise from there.",
+  },
+  {
+    icon: Layout,
+    title: "Embeddable UI Components",
+    desc: "Drop iframe-ready pages into your product: approval inbox, workflow builder, submission timeline, analytics dashboard. Themed to match your brand.",
+  },
+  {
+    icon: Cpu,
+    title: "Claude Skill Package",
+    desc: "AI-assisted integration. Tell Claude 'add approval to X' and it writes the full integration: API setup, workflow definition, webhook handler, iframe placement.",
   },
   {
     icon: Users,
     title: "Role-Based Routing",
-    desc: "Assign approvers by role (HOD, VP, Director), not by email. When a person changes role, pending approvals follow the role — not the person.",
+    desc: "Assign approvers by role (manager, director, compliance), not by email. When a person changes role, pending approvals follow the role.",
+  },
+  {
+    icon: Bell,
+    title: "Automated Chase Reminders",
+    desc: "Stuck approvals get automatic follow-ups every 72 hours. 10-email safety cap. Analytics show which steps are bottlenecks.",
+  },
+  {
+    icon: Webhook,
+    title: "HMAC-Signed Webhooks",
+    desc: "Get notified when submissions are approved, rejected, or sent back. Signed payloads, exponential backoff retries, verification examples in Node/Python/Go.",
   },
   {
     icon: BarChart3,
-    title: "Cross-Product Analytics",
-    desc: "See approval bottlenecks across all consuming products. Which step takes longest? Which tenant is slowest? Data no siloed tool can provide.",
+    title: "Approval Analytics",
+    desc: "Track avg/p50/p95 time-to-approve per workflow. Find bottleneck steps. Measure chase reminder effectiveness. All computed via SQL — zero memory overhead.",
   },
   {
     icon: ScrollText,
     title: "Immutable Audit Trail",
-    desc: "Every action logged: who approved, when, at which step, with what comments. Queryable, exportable, compliance-ready.",
+    desc: "Every action logged: who approved, when, at which step, with what comments. Queryable by date range, actor, action type. Compliance-ready.",
+  },
+  {
+    icon: Code2,
+    title: "Built for Scale",
+    desc: "Transactional safety on all mutations. SQL-level analytics. Redis-backed rate limiting. Composite indexes. Designed for 100K+ concurrent transactions.",
   },
 ];
 
 const USE_CASES: { icon: LucideIcon; title: string; desc: string }[] = [
   {
-    icon: Megaphone,
-    title: "Parent Announcements",
-    desc: "Teacher drafts. HOD reviews content. VP approves. Auto-publishes to parents via Parents Gateway.",
-  },
-  {
-    icon: ClipboardList,
-    title: "Survey Requests",
-    desc: "Researcher submits study. School DEFREP endorses. SOPB checks capacity. Approved or escalated with full audit trail.",
-  },
-  {
-    icon: GraduationCap,
-    title: "Student Profiles (HDP)",
-    desc: "Form teacher drafts holistic profile. HOD reviews. Principal signs off before parent release.",
+    icon: ShoppingCart,
+    title: "E-Commerce Orders",
+    desc: "High-value order review. Manager approves orders above threshold before fulfillment.",
   },
   {
     icon: DollarSign,
-    title: "Procurement",
-    desc: "Officer submits purchase request. Routes by dollar value: section head ($5k), director ($50k), PS ($500k).",
+    title: "Procurement & Finance",
+    desc: "Purchase requests route by dollar value. Section head, director, CFO — configurable per org.",
+  },
+  {
+    icon: ClipboardList,
+    title: "Content Publishing",
+    desc: "Editor reviews draft. Legal checks compliance. Comms lead approves. Auto-publishes on approval.",
+  },
+  {
+    icon: GraduationCap,
+    title: "Education & Schools",
+    desc: "Student profiles, programme approvals, resource requests. HOD → VP → Principal chains.",
   },
   {
     icon: FileText,
-    title: "Content Publishing",
-    desc: "Comms officer drafts press release. Comms Director approves. Auto-publishes to agency website.",
+    title: "HR & Compliance",
+    desc: "Leave requests, access control, data requests. Manager approval with compliance review gate.",
   },
   {
     icon: Plane,
-    title: "Travel & Leave",
-    desc: "Officer submits request. Reporting Officer approves. HR logs. Same pattern, every ministry.",
+    title: "Travel & Expenses",
+    desc: "Officer submits claim. Reporting officer approves. Finance logs. Same API, any organization.",
   },
 ];
 
 const STATS = [
-  { value: "4-6 wks", label: "Engineering time wasted per product rebuilding approvals" },
-  { value: "0%", label: "Visibility into where your request is stuck" },
-  { value: "0", label: "Audit trail when approvals live in email" },
-  { value: "Endless", label: "Email chains per approval cycle" },
+  { value: "3 min", label: "To integrate approvals into any product via API" },
+  { value: "100K+", label: "Concurrent transactions supported" },
+  { value: "1 API call", label: "To create a submission and start the flow" },
+  { value: "Zero", label: "Custom code needed for approval logic" },
 ];
 
 const BEFORE_AFTER = [
@@ -106,43 +140,43 @@ const BEFORE_AFTER = [
     after: "1 API call. Done in hours.",
   },
   {
-    scenario: "Officer checks request status",
+    scenario: "User checks request status",
     before: 'Forwards email: "Hi, any update?"',
     after: "Real-time tracker: Step 2 of 3",
   },
   {
     scenario: "Approver goes on leave",
     before: "Request stuck indefinitely",
-    after: "Auto-delegates to backup",
+    after: "Chase reminders every 72h + stuckWith API",
   },
   {
     scenario: "Audit asks for approval history",
     before: "Search inbox for 6 months of emails",
-    after: "Immutable audit trail, exportable",
+    after: "Immutable audit trail, queryable API",
   },
   {
-    scenario: "New school / agency onboards",
+    scenario: "New tenant onboards",
     before: "Rebuild flows from scratch",
-    after: "Select template, configure in 60s",
+    after: "Mint API key, define workflow, done",
   },
 ];
 
 const HOW_STEPS = [
   {
-    title: "Your product calls the API",
-    desc: "POST a submission with workflow type and payload. One endpoint.",
+    title: "Get an API key",
+    desc: "Create an organization and mint a scoped API key from the admin dashboard.",
   },
   {
-    title: "ApproveSG reads the tenant config",
-    desc: "Looks up the approval chain for this school/agency. Creates step instances.",
+    title: "Define a workflow",
+    desc: "POST your approval chain: steps, roles, labels. Or use the embeddable drag-and-drop builder.",
   },
   {
-    title: "Approvers get notified",
-    desc: "Email + in-app notification to the right person based on their role.",
+    title: "Create submissions",
+    desc: "POST a submission with workflow ID and payload. The approval flow starts immediately.",
   },
   {
-    title: "Actions flow through the chain",
-    desc: "Approve, next step. Reject, back to submitter. Send back, revision. All logged.",
+    title: "Approvers act",
+    desc: "Approve, reject, or send back — via your UI, the embedded inbox, or direct API calls.",
   },
   {
     title: "Your product gets a webhook",
@@ -150,18 +184,24 @@ const HOW_STEPS = [
   },
 ];
 
-const SCALE_CARDS = [
+const INTEGRATION_METHODS = [
   {
-    title: "MOE",
-    desc: "33,000 teachers, 350+ schools. Approvals for announcements, surveys, student profiles, programmes.",
+    title: "REST API",
+    desc: "Full CRUD for workflows, submissions, webhooks, and analytics. OpenAPI 3.0 spec included.",
+    link: "https://github.com/guangshinhaha/approve-sg/blob/main/approvesg-skill/assets/openapi.yaml",
+    linkLabel: "View OpenAPI Spec",
   },
   {
-    title: "Any Ministry",
-    desc: "Procurement, leave, travel, content publishing. Same pattern, different configs.",
+    title: "Embeddable UI",
+    desc: "Drop iframe components into your product: inbox, workflow builder, submission timeline, analytics. Themed to your brand.",
+    link: "https://github.com/guangshinhaha/approve-sg/blob/main/approvesg-skill/references/embed-integration.md",
+    linkLabel: "Embed Guide",
   },
   {
-    title: "Whole-of-Government",
-    desc: "One shared service on SGTS. Any agency onboards in hours, not months.",
+    title: "Claude Skill",
+    desc: "Tell Claude 'integrate ApproveSG' or 'find approval opportunities' and it writes the code. Scans for hand-rolled approvals too.",
+    link: "https://github.com/guangshinhaha/approve-sg#claude-skill--integrate-approvesg-with-ai-assistance",
+    linkLabel: "Install Skill",
   },
 ];
 
@@ -177,18 +217,18 @@ export default function LandingPage() {
         <div className="mx-auto max-w-content px-5 pb-10 pt-10 text-center sm:pb-16 sm:pt-16">
           <FadeInSection>
             <span className="inline-block rounded-badge border border-approve-primary/20 bg-white px-4 py-1 text-xs font-semibold uppercase tracking-wider text-approve-primary">
-              Approval Workflows as a Shared Service
+              Multi-Tenant Approval Engine &middot; API-Ready &middot; Cloud-Native
             </span>
           </FadeInSection>
           <FadeInSection delay={100}>
             <h1 className="mx-auto mt-5 max-w-3xl text-3xl font-bold leading-tight text-grey-700 sm:text-4xl lg:text-5xl">
-              Stop rebuilding approvals. Start shipping products.
+              Plug-and-play approval workflows for any product.
             </h1>
           </FadeInSection>
           <FadeInSection delay={200}>
             <p className="mx-auto mt-4 max-w-2xl text-base text-approve-text-secondary sm:text-lg">
-              One API. Any government product plugs in. Configurable per school, per agency, per
-              team. Approvals are configured — not coded.
+              One API. Any product plugs in. Multi-tenant, configurable per organization, embeddable
+              UI, AI-assisted integration. Approvals are configured — not coded.
             </p>
           </FadeInSection>
           <FadeInSection delay={300}>
@@ -199,14 +239,14 @@ export default function LandingPage() {
               >
                 Try the Demo <ArrowRight className="h-4 w-4" />
               </a>
-              <button
-                onClick={() =>
-                  document.querySelector("#how-it-works")?.scrollIntoView({ behavior: "smooth" })
-                }
+              <a
+                href="https://github.com/guangshinhaha/approve-sg"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-btn border border-approve-border bg-white px-6 py-3 text-sm font-semibold text-grey-700 transition-colors hover:bg-grey-100"
               >
-                See How It Works <ArrowDown className="h-4 w-4" />
-              </button>
+                View on GitHub <Code2 className="h-4 w-4" />
+              </a>
             </div>
           </FadeInSection>
           <FadeInSection delay={400}>
@@ -220,11 +260,12 @@ export default function LandingPage() {
         <div className="mx-auto max-w-content px-5">
           <FadeInSection>
             <h2 className="text-center text-2xl font-bold text-grey-700 sm:text-3xl">
-              The problem is everywhere.
+              Every product rebuilds the same thing.
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-approve-text-secondary">
-              Every product team builds the same approval logic from scratch. Every officer chases
-              approvals through email. Every audit finds gaps.
+              Approval workflows are table stakes — but every team builds them from scratch. Status
+              enums, email notifications, audit trails, role routing. Weeks of engineering,
+              every time.
             </p>
           </FadeInSection>
 
@@ -232,7 +273,7 @@ export default function LandingPage() {
           <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
             {STATS.map((stat, i) => (
               <FadeInSection key={i} delay={i * 100}>
-                <div className="rounded-card border border-approve-border p-5 text-center">
+                <div className="rounded-card border border-approve-border p-4 text-center md:p-5">
                   <p className="text-2xl font-bold text-grey-700 sm:text-3xl">{stat.value}</p>
                   <p className="mt-1 text-xs text-approve-text-secondary">{stat.label}</p>
                 </div>
@@ -248,7 +289,7 @@ export default function LandingPage() {
                   <tr className="border-b-2 border-approve-border">
                     <th className="py-3 pr-4 text-left font-semibold text-grey-700">Scenario</th>
                     <th className="px-4 py-3 text-left font-semibold text-status-rejected">
-                      Today
+                      Building it yourself
                     </th>
                     <th className="px-4 py-3 text-left font-semibold text-status-approved">
                       With ApproveSG
@@ -274,21 +315,54 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Integration Methods */}
+      <section className="bg-approve-primary py-10 sm:py-16">
+        <div className="mx-auto max-w-content px-5">
+          <FadeInSection>
+            <h2 className="text-center text-2xl font-bold text-white sm:text-3xl">
+              Three ways to integrate
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-white/70">
+              Use the API directly, embed pre-built UI components, or let Claude write the
+              integration for you.
+            </p>
+          </FadeInSection>
+          <div className="mt-8 grid gap-5 sm:grid-cols-3">
+            {INTEGRATION_METHODS.map((method, i) => (
+              <FadeInSection key={i} delay={i * 100}>
+                <div className="rounded-card border border-white/20 bg-white/10 p-6 backdrop-blur-sm">
+                  <h3 className="text-base font-semibold text-white">{method.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-white/70">{method.desc}</p>
+                  <a
+                    href={method.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-white/90 hover:text-white transition-colors"
+                  >
+                    {method.linkLabel} <ArrowRight className="h-3 w-3" />
+                  </a>
+                </div>
+              </FadeInSection>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features */}
       <section id="features" className="bg-approve-surface-alt py-10 sm:py-16">
         <div className="mx-auto max-w-content px-5">
           <FadeInSection>
             <h2 className="text-center text-2xl font-bold text-grey-700 sm:text-3xl">
-              Built for platform teams. Loved by product teams.
+              Everything you need. Nothing you don&apos;t.
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-approve-text-secondary">
-              Everything you need to add approval workflows to any product — without building an
-              approval engine.
+              API-first approval engine with multi-tenancy, embeddable UI, automated reminders,
+              analytics, webhooks, and AI-assisted integration.
             </p>
           </FadeInSection>
           <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f, i) => (
-              <FadeInSection key={i} delay={i * 80}>
+              <FadeInSection key={i} delay={i * 60}>
                 <div className="rounded-card border border-approve-border bg-white p-6">
                   <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-approve-primary-light">
                     <f.icon className="h-5 w-5 text-approve-primary" strokeWidth={2} />
@@ -309,7 +383,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-content px-5">
           <FadeInSection>
             <h2 className="text-center text-2xl font-bold text-grey-700 sm:text-3xl">
-              How it works
+              Integrate in 5 steps
             </h2>
           </FadeInSection>
           <div className="mt-8 grid items-start gap-8 lg:grid-cols-2">
@@ -320,23 +394,30 @@ export default function LandingPage() {
                   <span className="h-3 w-3 rounded-full bg-grey-300" />
                   <span className="h-3 w-3 rounded-full bg-grey-300" />
                   <span className="h-3 w-3 rounded-full bg-grey-300" />
-                  <span className="ml-2 text-xs text-grey-400">submit.ts</span>
+                  <span className="ml-2 text-xs text-grey-400">integrate.ts</span>
                 </div>
                 <pre className="overflow-x-auto bg-grey-700 p-5 text-sm leading-relaxed">
                   <code>
-                    <span className="text-grey-400">{"// Submit any item for approval — 3 lines"}</span>
+                    <span className="text-grey-400">{"// 1. Create a submission via API"}</span>
                     {"\n"}
                     <span className="text-blue-400">const</span>
-                    <span className="text-grey-100"> approval </span>
+                    <span className="text-grey-100"> res </span>
                     <span className="text-blue-400">= await</span>
                     <span className="text-yellow-300"> fetch</span>
                     <span className="text-grey-100">(</span>
-                    <span className="text-green-400">{`'/api/submissions'`}</span>
+                    {"\n"}
+                    <span className="text-green-400">{`  'https://approve-sg.up.railway.app/api/v1/submissions'`}</span>
                     <span className="text-grey-100">, {"{"}</span>
                     {"\n"}
                     <span className="text-grey-100">  method: </span>
                     <span className="text-green-400">{`'POST'`}</span>
                     <span className="text-grey-100">,</span>
+                    {"\n"}
+                    <span className="text-grey-100">  headers: {"{"} </span>
+                    <span className="text-green-400">{`'Authorization'`}</span>
+                    <span className="text-grey-100">: </span>
+                    <span className="text-green-400">{`\`Bearer \${API_KEY}\``}</span>
+                    <span className="text-grey-100"> {"}"},</span>
                     {"\n"}
                     <span className="text-grey-100">  body: </span>
                     <span className="text-blue-400">JSON</span>
@@ -344,17 +425,23 @@ export default function LandingPage() {
                     <span className="text-yellow-300">stringify</span>
                     <span className="text-grey-100">({"{"}</span>
                     {"\n"}
-                    <span className="text-grey-100">    workflow_type: </span>
-                    <span className="text-green-400">{`'announcement_approval'`}</span>
+                    <span className="text-grey-100">    workflowId: </span>
+                    <span className="text-green-400">{`'...'`}</span>
                     <span className="text-grey-100">,</span>
                     {"\n"}
-                    <span className="text-grey-100">    payload: {"{"} title, content, recipients {"}"}</span>
+                    <span className="text-grey-100">    submittedBy: </span>
+                    <span className="text-green-400">{`'user@company.com'`}</span>
+                    <span className="text-grey-100">,</span>
+                    {"\n"}
+                    <span className="text-grey-100">    payload: {"{"} title, amount {"}"}</span>
                     {"\n"}
                     <span className="text-grey-100">  {"}"})</span>
                     {"\n"}
                     <span className="text-grey-100">{"}"});</span>
                     {"\n\n"}
-                    <span className="text-grey-400">{"// That's it. Routing, notifications, audit — handled."}</span>
+                    <span className="text-grey-400">{"// That's it. Routing, notifications,"}</span>
+                    {"\n"}
+                    <span className="text-grey-400">{"// chase reminders, audit trail — all handled."}</span>
                   </code>
                 </pre>
               </div>
@@ -410,74 +497,66 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Comparison */}
-      <section id="compare" className="bg-white py-10 sm:py-16">
-        <div className="mx-auto max-w-content px-5">
-          <FadeInSection>
-            <h2 className="text-center text-2xl font-bold text-grey-700 sm:text-3xl">
-              Why not use what&apos;s already out there?
-            </h2>
-            <p className="mx-auto mt-3 max-w-2xl text-center text-approve-text-secondary">
-              We evaluated every WOG product. None were built for this.
-            </p>
-          </FadeInSection>
-          <FadeInSection delay={100} className="mt-8">
-            <ComparisonTable />
-          </FadeInSection>
-          <FadeInSection delay={200}>
-            <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-approve-text-secondary">
-              ApplySG is great when you&apos;re building a new form-based scheme. But what about the
-              80% of approvals inside existing systems? They don&apos;t need a form builder. They
-              need an approval API.
-            </p>
-          </FadeInSection>
-        </div>
-      </section>
-
       {/* Scale */}
-      <section className="bg-approve-primary py-10 sm:py-16">
+      <section className="bg-white py-10 sm:py-16">
         <div className="mx-auto max-w-content px-5 text-center">
           <FadeInSection>
-            <h2 className="text-2xl font-bold text-white sm:text-3xl">
-              Built for MOE. Scales to all of government.
+            <h2 className="text-2xl font-bold text-grey-700 sm:text-3xl">
+              Engineered for extreme scale
             </h2>
-            <p className="mx-auto mt-6 text-6xl font-bold text-white sm:text-7xl">150,000</p>
-            <p className="mt-2 text-sm font-medium text-white/80">
-              public officers across Singapore government
-            </p>
-            <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
-              Every ministry, every statutory board, every agency has the same pattern: officer
-              submits, needs N levels of approval, nobody knows where it&apos;s stuck, no audit
-              trail. ApproveSG solves this once, for everyone.
+            <p className="mx-auto mt-3 max-w-2xl text-approve-text-secondary">
+              Transactional safety, SQL-level analytics, Redis-backed rate limiting, composite
+              database indexes. Not a prototype — a production platform.
             </p>
           </FadeInSection>
           <div className="mt-8 grid gap-5 sm:grid-cols-3">
-            {SCALE_CARDS.map((card, i) => (
-              <FadeInSection key={i} delay={i * 100}>
-                <div className="rounded-card border border-white/20 bg-white/10 p-6 text-left backdrop-blur-sm">
-                  <h3 className="text-base font-semibold text-white">{card.title}</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-white/70">{card.desc}</p>
-                </div>
-              </FadeInSection>
-            ))}
+            <FadeInSection delay={0}>
+              <div className="rounded-card border border-approve-border p-6">
+                <p className="text-3xl font-bold text-approve-primary">100K+</p>
+                <p className="mt-1 text-sm text-approve-text-secondary">Concurrent transactions supported</p>
+              </div>
+            </FadeInSection>
+            <FadeInSection delay={100}>
+              <div className="rounded-card border border-approve-border p-6">
+                <p className="text-3xl font-bold text-approve-primary">0 ms</p>
+                <p className="mt-1 text-sm text-approve-text-secondary">Approval latency from blocking IO</p>
+              </div>
+            </FadeInSection>
+            <FadeInSection delay={200}>
+              <div className="rounded-card border border-approve-border p-6">
+                <p className="text-3xl font-bold text-approve-primary">0 rows</p>
+                <p className="mt-1 text-sm text-approve-text-secondary">Loaded into memory for analytics</p>
+              </div>
+            </FadeInSection>
           </div>
         </div>
       </section>
 
       {/* Final CTA */}
-      <section className="bg-approve-surface-alt py-10 sm:py-16">
+      <section className="bg-approve-primary py-10 sm:py-16">
         <div className="mx-auto max-w-content px-5 text-center">
           <FadeInSection>
-            <h2 className="mx-auto max-w-2xl text-2xl font-bold text-grey-700 sm:text-3xl">
-              Every product team builds approval workflows from scratch. What if none of them had
-              to?
+            <h2 className="mx-auto max-w-2xl text-2xl font-bold text-white sm:text-3xl">
+              Stop building approval logic. Start shipping your product.
             </h2>
-            <div className="mt-7">
+            <p className="mx-auto mt-4 max-w-xl text-sm text-white/70">
+              Multi-tenant, API-ready, embeddable, with Claude skill for AI-assisted integration.
+              Free to use. Open source.
+            </p>
+            <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
               <a
                 href="/login"
-                className="inline-flex items-center gap-2 rounded-btn bg-approve-primary px-8 py-4 text-base font-semibold text-white transition-colors hover:bg-approve-primary-dark"
+                className="inline-flex items-center gap-2 rounded-btn bg-white px-8 py-4 text-base font-semibold text-approve-primary transition-colors hover:bg-grey-100"
               >
                 Try the Demo <ArrowRight className="h-5 w-5" />
+              </a>
+              <a
+                href="https://github.com/guangshinhaha/approve-sg"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-btn border border-white/30 px-8 py-4 text-base font-semibold text-white transition-colors hover:bg-white/10"
+              >
+                GitHub <Code2 className="h-5 w-5" />
               </a>
             </div>
           </FadeInSection>
@@ -487,7 +566,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-approve-border bg-white py-6">
         <div className="mx-auto max-w-content px-5 text-center text-xs text-approve-text-secondary">
-          ApproveSG — A shared approval engine for Singapore government agencies.
+          ApproveSG — Multi-tenant approval engine. API-first. Embeddable. Open source.
         </div>
       </footer>
     </div>
