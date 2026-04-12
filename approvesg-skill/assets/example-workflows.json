@@ -1,0 +1,51 @@
+[
+  {
+    "workflowType": "leave_request",
+    "name": "Leave Request Approval",
+    "steps": [
+      { "order": 1, "label": "HOD Review", "approver_role": "hod", "required": true },
+      { "order": 2, "label": "VP Approval", "approver_role": "vp", "required": true }
+    ]
+  },
+  {
+    "workflowType": "purchase_order",
+    "name": "Purchase Order Approval",
+    "steps": [
+      { "order": 1, "label": "Department Head Review", "approver_role": "hod", "required": true },
+      { "order": 2, "label": "Finance Review", "approver_role": "finance", "required": true },
+      { "order": 3, "label": "VP Approval", "approver_role": "vp", "required": true }
+    ]
+  },
+  {
+    "workflowType": "it_change_request",
+    "name": "IT Change Request",
+    "steps": [
+      { "order": 1, "label": "Technical Review", "approver_role": "tech_lead", "required": true },
+      { "order": 2, "label": "Security Review", "approver_role": "security", "required": true },
+      { "order": 3, "label": "Change Board Approval", "approver_role": "change_board", "required": true }
+    ]
+  },
+  {
+    "workflowType": "content_publish",
+    "name": "Content Publishing",
+    "steps": [
+      { "order": 1, "label": "Editor Review", "approver_role": "editor", "required": true },
+      { "order": 2, "label": "Comms Lead Approval", "approver_role": "comms_lead", "required": true }
+    ]
+  },
+  {
+    "workflowType": "simple_approval",
+    "name": "Simple Manager Approval",
+    "steps": [
+      { "order": 1, "label": "Manager Approval", "approver_role": "manager", "required": true }
+    ]
+  },
+  {
+    "workflowType": "data_access",
+    "name": "Data Access Request",
+    "steps": [
+      { "order": 1, "label": "Data Owner Approval", "approver_role": "data_owner", "required": true },
+      { "order": 2, "label": "Compliance Review", "approver_role": "compliance", "required": true }
+    ]
+  }
+]

@@ -182,8 +182,6 @@ CRON_SECRET=<generated>
 - Drag-and-drop reordering uses native HTML5 drag events (no extra dependencies)
 - Inbox resolves user roles from OrgMember table, falling back to embed token role if no member record exists
 
-## Planned Phases
-
 ### Phase 4 — Approval aging analytics
 
 **Goal:** Let users track average approval aging to optimise processes.
@@ -208,35 +206,30 @@ CRON_SECRET=<generated>
 
 **Goal:** A Claude Code skill that teaches Claude how to integrate ApproveSG into any host codebase, including a "find approval opportunities" scanner mode.
 
-**What to build:**
+**What was built:**
 
 ```
 approvesg-skill/
-  SKILL.md                  # Trigger conditions + workflow overview
+  SKILL.md                        # Trigger conditions, overview, integration + scanner mode instructions
   references/
-    api-reference.md        # All /api/v1 endpoints with examples
-    workflow-patterns.md    # Common approval chain recipes
-    embed-integration.md   # How to drop iframes into a host app
-    webhook-events.md      # Event shapes + HMAC verification
+    api-reference.md              # Every /api/v1 endpoint — methods, schemas, scopes, curl examples
+    workflow-patterns.md          # 6 common approval chain recipes with selection guide
+    embed-integration.md          # Full embed auth flow, iframe snippets, React/Django examples
+    webhook-events.md             # All 4 event shapes, HMAC verification in Node/Python/Go
   assets/
-    openapi.yaml            # Machine-readable contract (generate from Zod schemas)
-    example-workflows.json  # Copy-paste starter chains
+    openapi.yaml                  # OpenAPI 3.0 spec covering all endpoints and schemas
+    example-workflows.json        # 6 copy-paste workflow definitions
 ```
 
-**Two modes:**
+**Integration mode** — triggered by "add approval to X" or "integrate ApproveSG". Claude reads the skill references and writes: API key configuration, workflow definition, submission creation, webhook handler, embed iframe placement.
 
-1. **Integration mode** — triggered when user asks "add approval to X" or "integrate ApproveSG". Claude reads the skill references, writes the integration code: API key setup, workflow definition, webhook handler, embed iframe placement.
+**Scanner mode** — triggered by "find approval opportunities". Claude greps for status enums, boolean flags, state-machine patterns, and naming signals. For each hit, reads surrounding code, judges if it's a hand-rolled approval chain, and produces a ranked report with integration sketches.
 
-2. **Scanner mode** — triggered when user asks "find approval opportunities" or "where should we add approval gates". Claude greps the host codebase for signals:
-   - Status enums (pending/approved/rejected)
-   - Boolean flags (is_approved, needs_review)
-   - State-machine libraries (xstate, finite-state)
-   - Form submit handlers writing to "requests"/"applications" tables
-   - Naming patterns (submit, review, authorize)
-   
-   For each hit, reads surrounding code, judges if it's a hand-rolled approval chain that could be replaced, and produces a ranked report: location → current behaviour → suggested gate → integration sketch.
-
-**Prerequisite:** OpenAPI spec generated from Zod schemas (via @asteasolutions/zod-to-openapi). This should be added to the main repo as part of Phase 5 prep.
+**Key decisions:**
+- OpenAPI spec written by hand (matching existing Zod schemas) rather than auto-generated — avoids adding zod-to-openapi dependency for a docs-only artifact
+- Skill references written as standalone docs that Claude can read selectively — no need to load the full API surface for simple tasks
+- Example workflows cover 6 common patterns (simple manager, two-level, three-level, technical+admin, compliance, content publishing)
+- Webhook verification examples in Node.js, Python, and Go for broad host product coverage
 
 ## Local Development
 
