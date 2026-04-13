@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { PenLine, Eye, CheckCircle2, Rocket, ArrowRight } from "lucide-react";
 
 const STEPS = [
-  { icon: PenLine, label: "Teacher submits", role: "Submitter" },
-  { icon: Eye, label: "HOD reviews", role: "Reviewer" },
-  { icon: CheckCircle2, label: "VP approves", role: "Approver" },
-  { icon: Rocket, label: "Published", role: "Complete" },
+  { icon: PenLine, label: "Submit", role: "Submitter" },
+  { icon: Eye, label: "Review", role: "Reviewer" },
+  { icon: CheckCircle2, label: "Approve", role: "Approver" },
+  { icon: Rocket, label: "Done", role: "Complete" },
 ];
 
 export function HeroAnimation() {
@@ -21,27 +21,27 @@ export function HeroAnimation() {
   }, []);
 
   return (
-    <div className="mx-auto mt-8 max-w-2xl">
-      <div className="rounded-card border border-approve-border bg-white p-6 shadow-sm">
+    <div className="mx-auto mt-8 max-w-2xl px-2">
+      <div className="rounded-card border border-approve-border bg-white p-4 shadow-sm sm:p-6 overflow-hidden">
         <p className="mb-4 text-center text-xs font-semibold uppercase tracking-wider text-approve-text-secondary">
           Live approval flow
         </p>
-        <div className="flex items-center justify-between gap-1 sm:gap-2">
+        <div className="flex items-start justify-center gap-0.5 sm:gap-2">
           {STEPS.map((step, i) => {
             const Icon = step.icon;
             const isCompleted = i < activeStep;
             const isActive = i === activeStep;
 
             return (
-              <div key={i} className="flex items-center gap-1 sm:gap-2">
+              <div key={i} className="flex items-start gap-0.5 sm:gap-2">
                 {/* Step */}
-                <div className="flex flex-col items-center gap-1">
+                <div className="flex w-14 sm:w-20 flex-col items-center gap-1.5">
                   <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-500 sm:h-12 sm:w-12 ${
+                    className={`flex h-9 w-9 items-center justify-center rounded-full border-2 transition-all duration-500 sm:h-12 sm:w-12 ${
                       isCompleted
                         ? "border-status-approved bg-status-approved-bg"
                         : isActive
-                          ? "animate-pulse-ring border-approve-primary bg-approve-primary-light scale-110"
+                          ? "animate-pulse-ring border-approve-primary bg-approve-primary-light"
                           : "border-grey-200 bg-grey-100"
                     }`}
                   >
@@ -71,14 +71,14 @@ export function HeroAnimation() {
 
                 {/* Connector */}
                 {i < STEPS.length - 1 && (
-                  <div className="mb-4 flex items-center">
+                  <div className="mt-3 flex flex-shrink-0 items-center sm:mt-4">
                     <div
-                      className={`h-0.5 w-4 transition-colors duration-500 sm:w-8 ${
+                      className={`h-0.5 w-2 transition-colors duration-500 sm:w-6 ${
                         i < activeStep ? "bg-status-approved" : "bg-grey-200"
                       }`}
                     />
                     <ArrowRight
-                      className={`h-3 w-3 transition-colors duration-500 ${
+                      className={`h-2.5 w-2.5 transition-colors duration-500 sm:h-3 sm:w-3 ${
                         i < activeStep ? "text-status-approved" : "text-grey-300"
                       }`}
                       strokeWidth={2}
