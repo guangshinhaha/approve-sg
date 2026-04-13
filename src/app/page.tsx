@@ -209,19 +209,19 @@ const INTEGRATION_METHODS = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-approve-surface">
+    <div className="min-h-screen bg-approve-surface overflow-x-hidden">
       <LandingNav />
 
       {/* Hero */}
-      <section className="bg-approve-primary-light">
-        <div className="mx-auto max-w-content px-5 pb-10 pt-10 text-center sm:pb-16 sm:pt-16">
+      <section className="bg-approve-primary-light overflow-hidden">
+        <div className="mx-auto max-w-content px-4 pb-10 pt-10 text-center sm:px-5 sm:pb-16 sm:pt-16">
           <FadeInSection>
-            <span className="inline-block rounded-badge border border-approve-primary/20 bg-white px-4 py-1 text-xs font-semibold uppercase tracking-wider text-approve-primary">
-              Multi-Tenant Approval Engine &middot; API-Ready &middot; Cloud-Native
+            <span className="inline-block rounded-badge border border-approve-primary/20 bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-approve-primary sm:px-4 sm:text-xs">
+              Multi-Tenant &middot; API-Ready &middot; Cloud-Native
             </span>
           </FadeInSection>
           <FadeInSection delay={100}>
-            <h1 className="mx-auto mt-5 max-w-3xl text-3xl font-bold leading-tight text-grey-700 sm:text-4xl lg:text-5xl">
+            <h1 className="mx-auto mt-5 max-w-3xl text-2xl font-bold leading-tight text-grey-700 sm:text-4xl lg:text-5xl break-words">
               Plug-and-play approval workflows for any product.
             </h1>
           </FadeInSection>
